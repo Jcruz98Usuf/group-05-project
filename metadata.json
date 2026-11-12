@@ -1,0 +1,6 @@
+{
+  "name": "NexusIQ - Opportunity-to-Proposal Intelligence",
+  "description": "AI-powered Opportunity-to-Proposal Intelligence Platform. Evaluate opportunities, match capabilities, analyze DNA fit, and detect risks with evidence traceability before you commit.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
