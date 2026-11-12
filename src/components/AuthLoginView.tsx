@@ -106,7 +106,7 @@ export const AuthLoginView: React.FC<AuthLoginViewProps> = ({ onLoginSuccess }) 
           <div className="absolute inset-0 z-0">
             <img 
               src={loginHeroImage} 
-              alt="NexusIQ Enterprise Intelligence Room" 
+              alt="NexusIQ workspace" 
               className="w-full h-full object-cover object-center transform scale-105 filter brightness-75 contrast-110"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/80 to-[#0F172A]/50 backdrop-blur-[1px]" />
@@ -130,7 +130,7 @@ export const AuthLoginView: React.FC<AuthLoginViewProps> = ({ onLoginSuccess }) 
 
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 text-xs font-medium text-cyan-300">
               <Sparkles className="w-3.5 h-3.5 text-[#38BDF8]" />
-              <span>Opportunity-to-Proposal Intelligence</span>
+              <span>Opportunity-to-Proposal</span>
             </div>
           </div>
 
@@ -152,7 +152,7 @@ export const AuthLoginView: React.FC<AuthLoginViewProps> = ({ onLoginSuccess }) 
               </div>
               <div className="bg-slate-800/70 backdrop-blur-xs p-2.5 rounded-xl border border-slate-700/50">
                 <div className="text-xs sm:text-base font-bold text-[#38BDF8]">88%</div>
-                <div className="text-[10px] text-slate-400">Win Rate Fit</div>
+                <div className="text-[10px] text-slate-400">Qualified Rate</div>
               </div>
               <div className="bg-slate-800/70 backdrop-blur-xs p-2.5 rounded-xl border border-slate-700/50">
                 <div className="text-xs sm:text-base font-bold text-emerald-400">100%</div>

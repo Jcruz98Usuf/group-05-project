@@ -62,7 +62,7 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
           badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
           containerBg: 'bg-amber-50/80 border-amber-200',
           icon: <AlertTriangle className="w-5 h-5 text-amber-600" />,
-          actionText: 'Review Risk Radar & Gaps',
+          actionText: 'Review Risk Analysis',
           targetPage: 'workspace' as EnterprisePageId
         };
       case 'do_not_pursue':
@@ -107,7 +107,7 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
               <span className="text-xs font-normal text-slate-400">/100</span>
             </div>
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
-              Opportunity Fit
+              Opportunity Score
             </div>
           </div>
           <button
@@ -132,7 +132,7 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
                 {banner.title}
               </span>
               <span className="text-xs text-slate-600 font-medium">
-                Decision Support Protocol
+                Recommendation
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium pt-0.5">
@@ -159,9 +159,9 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
       <div className="border-b border-slate-200 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth pb-0.5">
         {[
           { id: 'overview', label: 'Overview', count: null },
-          { id: 'capability', label: 'Capability Match', count: `${opportunity.capabilities.length} Domains` },
-          { id: 'risks', label: 'Risks & Exposure', count: `${opportunity.risks.length} Flags` },
-          { id: 'evidence', label: 'Evidence & Trust', count: `${evidenceList.length} Citations` }
+          { id: 'capability', label: 'Capability Assessment', count: `${opportunity.capabilities.length} Domains` },
+          { id: 'risks', label: 'Risk Analysis', count: `${opportunity.risks.length} Flags` },
+          { id: 'evidence', label: 'Evidence', count: `${evidenceList.length} Citations` }
         ].map((tab) => {
           const isActive = activeTab === tab.id;
 
@@ -302,7 +302,7 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
                         {req.category}
                       </span>
                       <span className="text-[10px] text-emerald-700 font-semibold">
-                        {req.confidence}% AI Confidence
+                        {req.confidence}% Confidence
                       </span>
                     </div>
                     <div className="text-xs font-bold text-slate-900 mt-1">
@@ -450,14 +450,14 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                   <FileCheck2 className="w-4 h-4 text-[#2563EB]" />
-                  <span>Verifiable Evidence Registry</span>
+                  <span>Evidence</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  The platform's trust feature: Every extracted claim and risk maps to verbatim source text.
+                  Every requirement and risk links to the source document text.
                 </p>
               </div>
               <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">
-                100% Traceability
+                100% Traceable
               </span>
             </div>
 

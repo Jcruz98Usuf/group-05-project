@@ -122,7 +122,7 @@ SECTION C - PERFORMANCE WORK STATEMENT: Contractor shall perform automated conve
               Intake New Business Opportunity
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Upload a tender, procurement notice, discovery notes, or client email for AI evaluation.
+              Upload a tender, procurement notice, discovery notes, or client email for evaluation.
             </p>
           </div>
           <button

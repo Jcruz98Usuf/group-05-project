@@ -17,7 +17,7 @@ import { EnterprisePageId } from '../types';
 
 interface OpportunitiesListProps {
   opportunities: Opportunity[];
-  activeOpportunity: Opportunity;
+  activeOpportunity: Opportunity | null;
   onSelectOpportunity: (opp: Opportunity) => void;
   onNavigate: (page: EnterprisePageId) => void;
   onOpenNewOpportunityModal: () => void;
@@ -190,7 +190,7 @@ export const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
         {/* Mobile-first Vertical Stack Cards for screens < 768px */}
         <div className="md:hidden divide-y divide-slate-100 p-3 space-y-3.5">
           {sorted.map((opp) => {
-            const isSelected = opp.id === activeOpportunity.id;
+            const isSelected = opp.id === activeOpportunity?.id;
 
             return (
               <div
@@ -300,7 +300,7 @@ export const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-100">
               {sorted.map((opp) => {
-                const isSelected = opp.id === activeOpportunity.id;
+                const isSelected = opp.id === activeOpportunity?.id;
 
                 return (
                   <tr

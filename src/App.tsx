@@ -3,10 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Opportunity, OpportunityStage, CompanyCapabilityProfile, ActivityEvent, EnterprisePageId, ProposalDocument, UserAccount } from './types';
-import { mockOpportunities, initialActivityEvents } from './data/mockOpportunities';
-import { initialCompanyProfile } from './data/companyProfile';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Opportunity, OpportunityStage, CompanyCapabilityProfile, ActivityEvent, EnterprisePageId, ProposalDocument, UserAccount, SetupAnswers } from './types';
 import { Header } from './components/Header';
 import { Navigation } from './components/Navigation';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
@@ -18,12 +16,54 @@ import { CapabilityManager } from './components/CapabilityManager';
 import { SettingsView } from './components/SettingsView';
 import { NewOpportunityModal } from './components/NewOpportunityModal';
 import { ProductBlueprintModal } from './components/ProductBlueprintModal';
-import { OnboardingNexas } from './components/OnboardingNexas';
 import { NexasChatbotBubble } from './components/NexasChatbotBubble';
 import { AuthLoginView } from './components/AuthLoginView';
+import { SetupAssistant } from './components/SetupAssistant';
+import { WorkspaceEmptyState } from './components/WorkspaceEmptyState';
+import {
+  WorkspaceData,
+  createDemoWorkspace,
+  createEmptyWorkspace,
+  emptyAccount,
+  emptyProfile,
+  getSessionUser,
+  loadWorkspace,
+  resolveUser,
+  saveWorkspace,
+  setSessionUser,
+  DEMO_EMAIL
+} from './services/workspaceStore';
+
+const VALID_PAGES: EnterprisePageId[] = [
+  'dashboard',
+  'opportunities',
+  'workspace',
+  'proposal-studio',
+  'pipeline',
+  'capability-manager',
+  'settings'
+];
+
+// Safe destination when there is no in-app history to return to (never a blank screen).
+const FALLBACK_PAGE: Record<EnterprisePageId, EnterprisePageId> = {
+  dashboard: 'dashboard',
+  opportunities: 'dashboard',
+  workspace: 'opportunities',
+  'proposal-studio': 'workspace',
+  pipeline: 'dashboard',
+  'capability-manager': 'dashboard',
+  settings: 'dashboard'
+};
+
+function resolvePageFromLocation(): EnterprisePageId {
+  const statePage = window.history.state?.page as EnterprisePageId | undefined;
+  if (statePage && VALID_PAGES.includes(statePage)) return statePage;
+  const hash = window.location.hash.replace('#', '') as EnterprisePageId;
+  if (hash && VALID_PAGES.includes(hash)) return hash;
+  return 'dashboard';
+}
 
 export default function App() {
-  // Authentication State: First thing a visitor sees is login/sign-in
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
       return sessionStorage.getItem('nexusiq_authenticated') === 'true';
@@ -32,28 +72,18 @@ export default function App() {
     }
   });
 
-  // Onboarding state
-  const [isOnboarded, setIsOnboarded] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('nexusiq_onboarded') === 'true';
-    } catch {
-      return true; // Default true so after login users can jump straight to workspace or rerun Nexas as needed
-    }
-  });
+  const [userId, setUserId] = useState<string | null>(() => getSessionUser());
+  const [hydrated, setHydrated] = useState<boolean>(false);
 
-  const [userAccount, setUserAccount] = useState<UserAccount>({
-    fullName: 'Sarah Jenkins',
-    email: 'sarah.jenkins@apexsystems.com',
-    companyName: 'Apex Intelligence & Systems Group',
-    companyWebsite: 'https://apexsystems.example.com',
-    companyDescription: 'We provide enterprise Power BI executive dashboards, distributed data lakehouse engineering, cloud software development, predictive AI services, and digital transformation consulting.',
-    isOnboarded: true
-  });
-
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(mockOpportunities);
-  const [activeOpportunity, setActiveOpportunity] = useState<Opportunity>(mockOpportunities[0]);
-  const [companyProfile, setCompanyProfile] = useState<CompanyCapabilityProfile>(initialCompanyProfile);
-  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>(initialActivityEvents);
+  // Tenant-scoped workspace state (empty for brand-new accounts).
+  const [userAccount, setUserAccount] = useState<UserAccount>(emptyAccount);
+  const [companyProfile, setCompanyProfile] = useState<CompanyCapabilityProfile>(emptyProfile);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [activeOpportunity, setActiveOpportunity] = useState<Opportunity | null>(null);
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+  const [isOnboarded, setIsOnboarded] = useState<boolean>(false);
+  const [setupSkipped, setSetupSkipped] = useState<boolean>(false);
+  const [showSetup, setShowSetup] = useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState<EnterprisePageId>('dashboard');
   const [historyStack, setHistoryStack] = useState<EnterprisePageId[]>([]);
@@ -63,95 +93,165 @@ export default function App() {
   const [isBlueprintOpen, setIsBlueprintOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Handle browser Back / Forward buttons (popstate integration)
+  const hydratedRef = useRef(false);
+
+  const hydrate = useCallback((ws: WorkspaceData) => {
+    setUserAccount(ws.account);
+    setCompanyProfile(ws.profile);
+    setOpportunities(ws.opportunities);
+    setActiveOpportunity(ws.opportunities[0] ?? null);
+    setActivityEvents(ws.activities);
+    setIsOnboarded(ws.onboarded);
+    setSetupSkipped(Boolean(ws.setupSkipped));
+  }, []);
+
+  // Restore the isolated workspace for the active session user.
   useEffect(() => {
-    // Set initial history state
-    if (!window.history.state) {
-      window.history.replaceState({ page: 'dashboard' }, '', '#dashboard');
+    if (!isAuthenticated) {
+      hydratedRef.current = true;
+      setHydrated(true);
+      return;
+    }
+    const uid = getSessionUser();
+    if (!uid) {
+      setIsAuthenticated(false);
+      hydratedRef.current = true;
+      setHydrated(true);
+      return;
+    }
+    setUserId(uid);
+    const ws = loadWorkspace(uid);
+    if (ws) {
+      hydrate(ws);
+    } else {
+      // Stale session with no provisioned workspace — sign out cleanly.
+      setSessionUser(null);
+      setIsAuthenticated(false);
+    }
+    hydratedRef.current = true;
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist the active tenant's workspace on every change (strict scoping by userId).
+  useEffect(() => {
+    if (!hydrated || !userId) return;
+    saveWorkspace(userId, {
+      account: userAccount,
+      profile: companyProfile,
+      opportunities,
+      activities: activityEvents,
+      onboarded: isOnboarded,
+      setupSkipped,
+      updatedAt: new Date().toISOString()
+    });
+  }, [hydrated, userId, userAccount, companyProfile, opportunities, activityEvents, isOnboarded, setupSkipped]);
+
+  // Browser history integration: the Back button returns to the previous page
+  // and never resolves to a blank screen.
+  useEffect(() => {
+    const initialPage = resolvePageFromLocation();
+    if (!window.history.state || !window.history.state.page) {
+      window.history.replaceState({ page: initialPage }, '', `#${initialPage}`);
     }
 
-    const handlePopState = (event: PopStateEvent) => {
-      if (event.state && event.state.page) {
-        setCurrentPage(event.state.page);
-      } else {
-        const hash = window.location.hash.replace('#', '') as EnterprisePageId;
-        const validPages: EnterprisePageId[] = [
-          'dashboard', 'opportunities', 'workspace', 
-          'proposal-studio', 'pipeline', 'capability-manager', 'settings'
-        ];
-        if (hash && validPages.includes(hash)) {
-          setCurrentPage(hash);
-        } else {
-          setCurrentPage('dashboard');
-        }
-      }
+    const handlePopState = () => {
+      const page = resolvePageFromLocation();
+      setCurrentPage(page);
+      setHistoryStack((prev) =>
+        prev.length > 0 && prev[prev.length - 1] === page ? prev.slice(0, -1) : prev
+      );
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Centralized Navigation with History Tracking
-  const handleNavigate = useCallback((newPage: EnterprisePageId, pushHistory: boolean = true) => {
-    if (newPage === currentPage) return;
+  // Centralized navigation with browser history tracking.
+  const handleNavigate = useCallback(
+    (newPage: EnterprisePageId, pushHistory: boolean = true) => {
+      if (newPage === currentPage) return;
 
-    if (pushHistory) {
-      setHistoryStack((prev) => [...prev, currentPage]);
-      try {
-        window.history.pushState({ page: newPage }, '', '#' + newPage);
-      } catch (e) {
-        console.warn('History pushState error:', e);
+      if (pushHistory) {
+        setHistoryStack((prev) => [...prev, currentPage]);
       }
-    }
+      try {
+        if (pushHistory) {
+          window.history.pushState({ page: newPage }, '', `#${newPage}`);
+        } else {
+          window.history.replaceState({ page: newPage }, '', `#${newPage}`);
+        }
+      } catch (e) {
+        console.warn('History update failed:', e);
+      }
 
-    setCurrentPage(newPage);
-    setIsMobileNavOpen(false); // Close mobile drawer when navigating
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentPage]);
+      setCurrentPage(newPage);
+      setIsMobileNavOpen(false);
+      window.scrollTo({ top: 0 });
+    },
+    [currentPage]
+  );
 
-  // Back Button Handler (supports both UI button and hardware/browser back)
+  // Back button: prefer real browser history (navigate back), fall back to a safe page.
   const handleGoBack = useCallback(() => {
     if (historyStack.length > 0) {
-      const prevPage = historyStack[historyStack.length - 1];
-      setHistoryStack((prev) => prev.slice(0, prev.length - 1));
-      try {
-        window.history.pushState({ page: prevPage }, '', '#' + prevPage);
-      } catch (e) {
-        console.warn('History pushState error:', e);
-      }
-      setCurrentPage(prevPage);
-    } else if (currentPage !== 'dashboard') {
-      setCurrentPage('dashboard');
-      try {
-        window.history.pushState({ page: 'dashboard' }, '', '#dashboard');
-      } catch (e) {
-        console.warn(e);
-      }
-    } else {
       window.history.back();
+      return;
     }
+
+    const fallback = FALLBACK_PAGE[currentPage] ?? 'dashboard';
+    setCurrentPage(fallback);
+    try {
+      window.history.replaceState({ page: fallback }, '', `#${fallback}`);
+    } catch (e) {
+      console.warn(e);
+    }
+    window.scrollTo({ top: 0 });
   }, [historyStack, currentPage]);
 
-  // Successful Login Handler
+  const addActivity = useCallback((event: ActivityEvent) => {
+    setActivityEvents((prev) => [event, ...prev]);
+  }, []);
+
+  // Login / registration: provision an isolated workspace (empty for new users).
   const handleLoginSuccess = (user: UserAccount) => {
-    setUserAccount(user);
-    if (user.companyName) {
-      setCompanyProfile((prev) => ({
-        ...prev,
-        companyName: user.companyName
-      }));
+    const { userId: resolvedId, isNew } = resolveUser(user.email);
+
+    let ws: WorkspaceData;
+    if (isNew) {
+      ws =
+        user.email.trim().toLowerCase() === DEMO_EMAIL
+          ? createDemoWorkspace(user)
+          : createEmptyWorkspace(user);
+    } else {
+      ws = loadWorkspace(resolvedId) ?? createEmptyWorkspace(user);
     }
+
+    hydrate(ws);
+    setUserId(resolvedId);
+    setSessionUser(resolvedId);
     setIsAuthenticated(true);
+    setCurrentPage('dashboard');
+    setHistoryStack([]);
     try {
+      window.history.replaceState({ page: 'dashboard' }, '', '#dashboard');
       sessionStorage.setItem('nexusiq_authenticated', 'true');
     } catch (e) {
       console.warn(e);
     }
   };
 
-  // Sign Out Handler
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setUserId(null);
+    setSessionUser(null);
+    setOpportunities([]);
+    setActiveOpportunity(null);
+    setActivityEvents([]);
+    setCompanyProfile(emptyProfile());
+    setUserAccount(emptyAccount());
+    setIsOnboarded(false);
+    setShowSetup(false);
     try {
       sessionStorage.removeItem('nexusiq_authenticated');
     } catch (e) {
@@ -159,72 +259,84 @@ export default function App() {
     }
   };
 
-  // Handle completion of Nexas onboarding
-  const handleCompleteOnboarding = (account: UserAccount, generatedProfile: CompanyCapabilityProfile) => {
-    setUserAccount(account);
-    setCompanyProfile(generatedProfile);
+  // Setup Assistant completion
+  const handleCompleteSetup = (
+    account: UserAccount,
+    profile: CompanyCapabilityProfile,
+    _answers: SetupAnswers
+  ) => {
+    setUserAccount({ ...account, isOnboarded: true });
+    setCompanyProfile(profile);
     setIsOnboarded(true);
+    setSetupSkipped(false);
+    setShowSetup(false);
     handleNavigate('dashboard');
 
-    try {
-      localStorage.setItem('nexusiq_onboarded', 'true');
-    } catch (e) {
-      console.warn('LocalStorage error:', e);
-    }
-
-    const newEvent: ActivityEvent = {
+    addActivity({
       id: `act-${Date.now()}`,
       timestamp: 'Just now',
-      opportunityId: activeOpportunity.id,
-      opportunityTitle: 'Nexas Onboarding',
+      opportunityId: '',
+      opportunityTitle: 'Setup',
       type: 'qualification',
-      message: `Nexas configured capability profile for "${generatedProfile.companyName}" with ${generatedProfile.services.length} core services.`,
+      message: `Setup complete for "${profile.companyName}" with ${profile.services.length} service area(s).`,
       actor: 'Nexas Assistant',
       badgeType: 'emerald'
-    };
-
-    setActivityEvents((prev) => [newEvent, ...prev]);
+    });
   };
 
-  // Re-run onboarding assistant
-  const handleRerunOnboarding = () => {
-    setIsOnboarded(false);
+  // Skip setup (enter the app with a clean, empty workspace)
+  const handleSkipSetup = () => {
+    setUserAccount((prev) => ({ ...prev, isOnboarded: true }));
+    setIsOnboarded(true);
+    setSetupSkipped(true);
+    setShowSetup(false);
+    handleNavigate('dashboard');
   };
 
-  // Handle switching active opportunity
-  const handleSelectOpportunity = (opp: Opportunity) => {
-    setActiveOpportunity(opp);
+  const handleRunSetup = () => setShowSetup(true);
+  const handleExitSetup = () => setShowSetup(false);
+
+  // Load isolated demo data into the current account (never shared across tenants).
+  const handleLoadDemo = () => {
+    const ws = createDemoWorkspace(userAccount);
+    hydrate(ws);
+    addActivity({
+      id: `act-${Date.now()}`,
+      timestamp: 'Just now',
+      opportunityId: '',
+      opportunityTitle: 'Demo Data',
+      type: 'extraction',
+      message: 'Demo workspace loaded into this account.',
+      actor: userAccount.fullName || 'User',
+      badgeType: 'blue'
+    });
   };
 
-  // Handle new opportunity created from intake
+  const handleSelectOpportunity = (opp: Opportunity) => setActiveOpportunity(opp);
+
   const handleOpportunityCreated = (newOpp: Opportunity) => {
     setOpportunities((prev) => [newOpp, ...prev]);
     setActiveOpportunity(newOpp);
     handleNavigate('workspace');
 
-    const newEvent: ActivityEvent = {
+    addActivity({
       id: `act-${Date.now()}`,
       timestamp: 'Just now',
       opportunityId: newOpp.id,
       opportunityTitle: newOpp.title,
       type: 'extraction',
       message: `Opportunity "${newOpp.title}" evaluated with fit score of ${newOpp.overallScore}/100.`,
-      actor: userAccount.fullName || 'Marcus Vance',
+      actor: userAccount.fullName || 'User',
       badgeType: newOpp.overallScore >= 80 ? 'emerald' : newOpp.overallScore >= 60 ? 'blue' : 'rose'
-    };
-
-    setActivityEvents((prev) => [newEvent, ...prev]);
+    });
   };
 
-  // Handle stage change from Kanban or table
   const handleUpdateOpportunityStage = (oppId: string, newStage: OpportunityStage) => {
     setOpportunities((prev) =>
       prev.map((opp) => {
         if (opp.id === oppId) {
           const updated = { ...opp, stage: newStage };
-          if (activeOpportunity.id === oppId) {
-            setActiveOpportunity(updated);
-          }
+          if (activeOpportunity?.id === oppId) setActiveOpportunity(updated);
           return updated;
         }
         return opp;
@@ -233,44 +345,41 @@ export default function App() {
 
     const target = opportunities.find((o) => o.id === oppId);
     if (target) {
-      const newEvent: ActivityEvent = {
+      addActivity({
         id: `act-${Date.now()}`,
         timestamp: 'Just now',
         opportunityId: oppId,
         opportunityTitle: target.title,
         type: 'stage_changed',
         message: `Opportunity "${target.title}" moved to ${newStage.toUpperCase()} stage.`,
-        actor: userAccount.fullName || 'Marcus Vance',
+        actor: userAccount.fullName || 'User',
         badgeType: newStage === 'won' ? 'emerald' : 'blue'
-      };
-      setActivityEvents((prev) => [newEvent, ...prev]);
+      });
     }
   };
 
-  // Handle proposal document update
   const handleUpdateProposal = (updatedProposal: ProposalDocument) => {
-    const updatedOpp = {
-      ...activeOpportunity,
-      proposal: updatedProposal
-    };
-
+    if (!activeOpportunity) return;
+    const updatedOpp = { ...activeOpportunity, proposal: updatedProposal };
     setActiveOpportunity(updatedOpp);
-    setOpportunities((prev) =>
-      prev.map((o) => (o.id === updatedOpp.id ? updatedOpp : o))
-    );
+    setOpportunities((prev) => prev.map((o) => (o.id === updatedOpp.id ? updatedOpp : o)));
   };
 
-  // 1. FIRST THING USERS SEE: LOGIN OR SIGN IN PAGE WITH HERO IMAGE & BRIEF DESCRIPTION
+  // 1. Authentication gate
   if (!isAuthenticated) {
     return <AuthLoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // 2. IF USER MANUALLY REQUESTS ONBOARDING FLOW
-  if (!isOnboarded) {
+  // 2. Setup Assistant gate (first sign-in, or resumed from Settings / dashboard)
+  if (!isOnboarded || showSetup) {
     return (
-      <OnboardingNexas
-        onCompleteOnboarding={handleCompleteOnboarding}
+      <SetupAssistant
+        account={userAccount}
         initialProfile={companyProfile}
+        mode={isOnboarded ? 'settings' : 'onboarding'}
+        onComplete={handleCompleteSetup}
+        onSkip={handleSkipSetup}
+        onExit={isOnboarded ? handleExitSetup : undefined}
       />
     );
   }
@@ -281,9 +390,32 @@ export default function App() {
 
   const canGoBack = historyStack.length > 0 || currentPage !== 'dashboard';
 
+  const EmptyPanel: React.FC<{ title: string; description: string }> = ({ title, description }) => (
+    <div className="max-w-xl mx-auto text-center py-16">
+      <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+      <p className="text-sm text-slate-500 mt-2">{description}</p>
+      <button
+        onClick={() => setIsNewOpportunityOpen(true)}
+        className="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold"
+      >
+        Add Opportunity
+      </button>
+    </div>
+  );
+
   const renderActivePage = () => {
     switch (currentPage) {
       case 'dashboard':
+        if (opportunities.length === 0) {
+          return (
+            <WorkspaceEmptyState
+              account={userAccount}
+              onRunSetup={handleRunSetup}
+              onAddOpportunity={() => setIsNewOpportunityOpen(true)}
+              onLoadDemo={userAccount.email.toLowerCase() === DEMO_EMAIL ? undefined : handleLoadDemo}
+            />
+          );
+        }
         return (
           <ExecutiveDashboard
             opportunities={opportunities}
@@ -292,7 +424,7 @@ export default function App() {
             onNavigate={handleNavigate}
             activityEvents={activityEvents}
             onOpenNewOpportunityModal={() => setIsNewOpportunityOpen(true)}
-            companyName={companyProfile.companyName}
+            companyName={companyProfile.companyName || userAccount.companyName}
           />
         );
 
@@ -308,20 +440,21 @@ export default function App() {
         );
 
       case 'workspace':
-        return (
-          <OpportunityWorkspace
-            opportunity={activeOpportunity}
-            onNavigate={handleNavigate}
-          />
-        );
+        if (!activeOpportunity) {
+          return <EmptyPanel title="No opportunity selected" description="Add an opportunity or select one from the list to open its workspace." />;
+        }
+        return <OpportunityWorkspace opportunity={activeOpportunity} onNavigate={handleNavigate} />;
 
       case 'proposal-studio':
+        if (!activeOpportunity) {
+          return <EmptyPanel title="No proposal yet" description="Select an opportunity to draft its proposal." />;
+        }
         return (
           <ProposalStudio
             opportunity={activeOpportunity}
             onUpdateProposal={handleUpdateProposal}
             onNavigate={handleNavigate}
-            companyName={companyProfile.companyName}
+            companyName={companyProfile.companyName || userAccount.companyName}
           />
         );
 
@@ -351,6 +484,8 @@ export default function App() {
           <SettingsView
             companyProfile={companyProfile}
             onUpdateProfile={(updated) => setCompanyProfile(updated)}
+            onRunSetup={handleRunSetup}
+            setupCompleted={isOnboarded && !setupSkipped}
           />
         );
 
@@ -361,8 +496,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] antialiased flex flex-col font-sans">
-      
-      {/* Responsive Navigation Sidebar / Mobile Drawer */}
       <Navigation
         currentPage={currentPage}
         onNavigate={handleNavigate}
@@ -371,20 +504,18 @@ export default function App() {
         totalOpportunitiesCount={opportunities.length}
         qualifiedCount={qualifiedCount}
         onOpenNewOpportunityModal={() => setIsNewOpportunityOpen(true)}
-        companyName={companyProfile.companyName}
-        onRerunOnboarding={handleRerunOnboarding}
+        companyName={companyProfile.companyName || userAccount.companyName}
+        onRerunOnboarding={handleRunSetup}
         isOpenMobile={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}
         onLogout={handleLogout}
       />
 
-      {/* Main Layout Area: pl-0 on mobile & tablet, lg:pl-64 or lg:pl-16 on desktop */}
-      <div 
+      <div
         className={`flex-1 flex flex-col transition-all duration-300 pl-0 ${
           isNavCollapsed ? 'lg:pl-16' : 'lg:pl-64'
         }`}
       >
-        {/* Top Header with Hamburger for mobile, Back button, and User menu */}
         <Header
           opportunities={opportunities}
           activeOpportunity={activeOpportunity}
@@ -399,17 +530,15 @@ export default function App() {
           onGoBack={handleGoBack}
           onOpenMobileNav={() => setIsMobileNavOpen(true)}
           onLogout={handleLogout}
-          onRerunOnboarding={handleRerunOnboarding}
+          onRerunOnboarding={handleRunSetup}
           onNavigate={handleNavigate}
         />
 
-        {/* Workspace Content Viewport with responsive gutters */}
         <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto overflow-y-auto">
           {renderActivePage()}
         </main>
       </div>
 
-      {/* New Opportunity Intake Modal */}
       <NewOpportunityModal
         isOpen={isNewOpportunityOpen}
         onClose={() => setIsNewOpportunityOpen(false)}
@@ -417,20 +546,20 @@ export default function App() {
         onOpportunityCreated={handleOpportunityCreated}
       />
 
-      {/* Product Blueprint & System Documentation Modal */}
       <ProductBlueprintModal
         isOpen={isBlueprintOpen}
         onClose={() => setIsBlueprintOpen(false)}
       />
 
-      {/* Enterprise Floating Chatbot Bubble at Bottom Right */}
-      <NexasChatbotBubble
-        activeOpportunity={activeOpportunity}
-        companyProfile={companyProfile}
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-        onUpdateProposal={handleUpdateProposal}
-      />
+      {activeOpportunity && (
+        <NexasChatbotBubble
+          activeOpportunity={activeOpportunity}
+          companyProfile={companyProfile}
+          currentPage={currentPage}
+          onNavigate={handleNavigate}
+          onUpdateProposal={handleUpdateProposal}
+        />
+      )}
     </div>
   );
 }

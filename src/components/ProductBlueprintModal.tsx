@@ -217,7 +217,7 @@ model ProposalDocument {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                   <div className="p-2.5 rounded bg-emerald-50 border border-emerald-200">
                     <strong className="text-emerald-800 block">PURSUE (Score &ge; 80)</strong>
-                    <span className="text-[11px] text-emerald-900">High win probability, verified in-house assets, healthy commercial margin.</span>
+                    <span className="text-[11px] text-emerald-900">Strong fit with verified in-house assets and healthy commercial margin.</span>
                   </div>
                   <div className="p-2.5 rounded bg-amber-50 border border-amber-200">
                     <strong className="text-amber-800 block">INVESTIGATE (Score 60–79)</strong>
@@ -310,7 +310,7 @@ model ProposalDocument {
                   { m: 'POST', p: '/api/v1/opportunities/ingest', d: 'Accepts raw text or multipart document (PDF/DOCX); returns tokenized and extracted entities.' },
                   { m: 'GET', p: '/api/v1/opportunities', d: 'Returns paginated list of opportunities with filtering by stage, riskLevel, and overallScore.' },
                   { m: 'GET', p: '/api/v1/opportunities/{id}', d: 'Returns single source of truth including requirements, risks, capabilities, and evidence.' },
-                  { m: 'POST', p: '/api/v1/proposals/{id}/generate', d: 'Synthesizes all 8 structured proposal sections using low-temperature AI reasoning.' },
+                  { m: 'POST', p: '/api/v1/proposals/{id}/generate', d: 'Generates all 8 structured proposal sections.' },
                   { m: 'PATCH', p: '/api/v1/opportunities/{id}/stage', d: 'Moves opportunity across the 8 Kanban pipeline stages.' }
                 ].map((a, i) => (
                   <div key={i} className="p-3 rounded-lg border border-slate-200 bg-white flex items-center justify-between text-xs">

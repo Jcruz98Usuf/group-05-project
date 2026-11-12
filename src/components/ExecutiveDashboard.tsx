@@ -17,7 +17,7 @@ import { EnterprisePageId } from '../types';
 
 interface ExecutiveDashboardProps {
   opportunities: Opportunity[];
-  activeOpportunity: Opportunity;
+  activeOpportunity?: Opportunity | null;
   onSelectOpportunity: (opp: Opportunity) => void;
   onNavigate: (page: EnterprisePageId) => void;
   activityEvents: ActivityEvent[];
@@ -89,10 +89,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             <span className="text-xs font-bold text-[#2563EB]">{companyName}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Executive Opportunity Command
+            Executive Dashboard
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Real-time pipeline intelligence, risk exposure, and qualification decisions for {companyName}.
+            Pipeline overview and qualification decisions for {companyName}.
           </p>
         </div>
 
@@ -119,12 +119,12 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         {/* KPI 1: Active Opportunities */}
         <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 text-xs font-medium mb-1.5">
-            <span>Active Opportunities</span>
+            <span>Total Opportunities</span>
             <Briefcase className="w-4 h-4 text-slate-400" />
           </div>
           <div className="text-2xl font-bold text-slate-900">{totalCount}</div>
           <div className="text-[11px] text-slate-500 mt-1">
-            Under active evaluation
+            Across all stages
           </div>
         </div>
 
@@ -178,8 +178,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
       </div>
 
-      {/* Middle Row: Charts & Visual Intelligence */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Middle Row: Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Chart 1: Opportunity Status Breakdown */}
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 space-y-4">
@@ -215,7 +215,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
 
           <div className="pt-2 text-[11px] text-slate-500 border-t border-slate-100">
-            Conversion rate from Ingestion to Qualified: <strong className="text-slate-800">{Math.round((qualifiedCount / totalCount) * 100)}%</strong>
+            Conversion rate from Ingestion to Qualified: <strong className="text-slate-800">{totalCount ? Math.round((qualifiedCount / totalCount) * 100) : 0}%</strong>
           </div>
         </div>
 
@@ -224,7 +224,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
               <Building className="w-4 h-4 text-[#2563EB]" />
-              <span>Industry Sector Exposure</span>
+              <span>Industry Exposure</span>
             </h3>
             <span className="text-xs text-slate-400 font-medium">{Object.keys(industryMap).length} Sectors</span>
           </div>
@@ -241,45 +241,8 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-            Public transit and healthcare verticals account for 68% of qualified enterprise pipeline.
+            Public transit and healthcare make up most of the qualified pipeline.
           </p>
-        </div>
-
-        {/* Chart 3: Opportunity Trend & Win-Probability */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
-              <span>Opportunity Intake Trend</span>
-            </h3>
-            <span className="text-xs text-emerald-600 font-semibold">+35% MoM</span>
-          </div>
-
-          <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Q3 Monthly Intake Volume</span>
-                <span className="font-bold text-slate-900">4 Opportunities ($11.2M)</span>
-              </div>
-              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-emerald-500 h-full w-[65%]" />
-              </div>
-            </div>
-
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-500">Q4 Monthly Intake Volume</span>
-                <span className="font-bold text-slate-900">6 Opportunities ($17.5M)</span>
-              </div>
-              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-[#2563EB] h-full w-[85%]" />
-              </div>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-lg bg-emerald-50/60 border border-emerald-100 text-xs text-emerald-900">
-            <strong>Decision Confidence Index:</strong> Disqualification filters have saved an estimated 120 proposal engineering hours this quarter.
-          </div>
         </div>
 
       </div>
@@ -437,9 +400,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <ShieldAlert className="w-4 h-4 text-rose-600" />
-                <span>Top Critical Risks</span>
+                <span>Top Risks</span>
               </h3>
-              <span className="text-[10px] text-slate-400">Governance</span>
+              <span className="text-[10px] text-slate-400">By severity</span>
             </div>
 
             <div className="space-y-2.5">
@@ -471,7 +434,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-slate-400" />
-                <span>Recent System Activity</span>
+                <span>Recent Activity</span>
               </h3>
             </div>
 

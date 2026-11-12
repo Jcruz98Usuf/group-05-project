@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Opportunity, CompanyCapabilityProfile, ProposalDocument, EnterprisePageId } from '../types';
+import { buildCapabilityMatch, buildOpportunityAnalysis } from '../services/nexasEngine';
 import { 
   MessageSquare, 
   X, 
@@ -26,8 +27,9 @@ interface ChatMessage {
   timestamp: string;
   suggestedAction?: {
     label: string;
-    actionType: 'copy' | 'navigate_proposal' | 'insert_summary';
+    actionType: 'copy' | 'navigate_proposal' | 'insert_summary' | 'navigate';
     payload?: string;
+    page?: EnterprisePageId;
   };
 }
 
@@ -55,7 +57,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
   const initialGreeting: ChatMessage = {
     id: 'msg-init-1',
     sender: 'assistant',
-    text: `Hello! I'm Nexas, your Opportunity Intelligence Assistant.\n\nI have evaluated **${activeOpportunity.title}** for **${activeOpportunity.organization}**.\n\n• Fit Score: **${activeOpportunity.overallScore}/100**\n• Recommendation: **${activeOpportunity.recommendation.toUpperCase().replace('_', ' ')}**\n• Value: **${activeOpportunity.estimatedBudget}**\n\nHow can I help you refine this proposal, review risks, or check capability matches?`,
+    text: `Hi, I'm Nexas, your Opportunity-to-Proposal Intelligence Assistant.\n\nYou're reviewing **${activeOpportunity.title}** for **${activeOpportunity.organization}**.\n\n• Opportunity Score: **${activeOpportunity.overallScore}/100**\n• Recommendation: **${activeOpportunity.recommendation.toUpperCase().replace(/_/g, ' ')}**\n• Estimated Budget: **${activeOpportunity.estimatedBudget}**\n\nWhat would you like to do next?`,
     timestamp: 'Just now',
     suggestedAction: {
       label: 'Draft Executive Summary Hook',
@@ -81,7 +83,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
         {
           id: `msg-opp-${activeOpportunity.id}`,
           sender: 'assistant',
-          text: `Context switched to **${activeOpportunity.title}** (${activeOpportunity.organization}).\n\nFit Score: **${activeOpportunity.overallScore}/100** • Recommendation: **${activeOpportunity.recommendation.toUpperCase().replace('_', ' ')}**.\n\nAsk me about win themes, requirement gaps, or proposal drafting!`,
+          text: `Switched to **${activeOpportunity.title}** (${activeOpportunity.organization}).\n\nOpportunity Score: **${activeOpportunity.overallScore}/100** • Recommendation: **${activeOpportunity.recommendation.toUpperCase().replace(/_/g, ' ')}**.\n\nAsk me about next steps, requirement gaps, or proposal drafting!`,
           timestamp: 'Just now'
         }
       ]);
@@ -119,19 +121,25 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
           actionType: 'navigate_proposal'
         };
       } else if (lower.includes('executive summary') || lower.includes('hook') || lower.includes('win theme')) {
-        reply = `Here is a high-impact Win Theme formulated for **${activeOpportunity.organization}**:\n\n"To support ${activeOpportunity.organization}'s mission, ${companyProfile.companyName} combines enterprise-grade data architecture with specialized ${companyProfile.services.slice(0, 2).map(s => s.name).join(' and ')}. Our verified compliance with ${companyProfile.certifications.slice(0, 2).join(' & ')} eliminates vendor risk and guarantees day-one operational continuity."\n\nYou can insert this directly into Section 1.`;
+        reply = `Here is a draft executive summary for **${activeOpportunity.organization}**:\n\n"To support ${activeOpportunity.organization}'s mission, ${companyProfile.companyName} combines enterprise-grade data architecture with specialized ${companyProfile.services.slice(0, 2).map(s => s.name).join(' and ')}. Our verified compliance with ${companyProfile.certifications.slice(0, 2).map(c => c.name).join(' & ')} reduces vendor risk and supports day-one operational continuity."\n\nYou can insert this directly into Section 1.`;
         action = {
           label: 'Insert into Executive Summary',
           actionType: 'insert_summary',
-          payload: `To support ${activeOpportunity.organization}'s mission, ${companyProfile.companyName} combines enterprise-grade data architecture with specialized ${companyProfile.services.slice(0, 2).map(s => s.name).join(' and ')}. Our verified compliance with ${companyProfile.certifications.slice(0, 2).join(' & ')} eliminates vendor risk and guarantees day-one operational continuity.`
+          payload: `To support ${activeOpportunity.organization}'s mission, ${companyProfile.companyName} combines enterprise-grade data architecture with specialized ${companyProfile.services.slice(0, 2).map(s => s.name).join(' and ')}. Our verified compliance with ${companyProfile.certifications.slice(0, 2).map(c => c.name).join(' & ')} eliminates vendor risk and guarantees day-one operational continuity.`
         };
       } else if (lower.includes('match') || lower.includes('capability') || lower.includes('fit') || lower.includes('gap')) {
-        const matchCount = activeOpportunity.capabilities.filter(m => m.matchPercentage >= 80).length;
-        const partialCount = activeOpportunity.capabilities.filter(m => m.matchPercentage < 80).length;
-        reply = `Capability Match Breakdown for **${companyProfile.companyName}**:\n\n• **${matchCount} High Match Domains** (≥80% alignment): Strong alignment in core architecture & compliance.\n• **${partialCount} Moderate / Development Domains**: Review required for sub-contracting or staffing surge.\n\nOverall Alignment Score: **${activeOpportunity.overallScore}%** fit.`;
+        const cm = buildCapabilityMatch(activeOpportunity);
+        const fmt = (arr: { domain: string; match_percentage: number }[]) =>
+          arr.length ? arr.map((x) => `• ${x.domain} — ${x.match_percentage}%`).join('\n') : '• None';
+        reply =
+          `Capability Assessment for **${companyProfile.companyName}**:\n\n` +
+          `**Matched (≥80%)**\n${fmt(cm.matched_capabilities)}\n\n` +
+          `**Partial (50–79%)**\n${fmt(cm.partial_matches)}\n\n` +
+          `**Gaps (<50%)**\n${fmt(cm.gaps)}\n\n` +
+          `Overall capability match: **${cm.match_percentage}%**.`;
       } else if (lower.includes('bid') || lower.includes('pursue') || lower.includes('recommendation')) {
         const rec = activeOpportunity.recommendation;
-        reply = `**Recommendation: ${rec.toUpperCase().replace('_', ' ')}**\n\n` +
+        reply = `**Recommendation: ${rec.toUpperCase().replace(/_/g, ' ')}**\n\n` +
           `Rationale: ${activeOpportunity.recommendationReason}\n\n` +
           `• Contract Ceiling: ${activeOpportunity.estimatedBudget}\n` +
           `• Due Date: ${activeOpportunity.deadline}\n` +
@@ -146,8 +154,32 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
           label: 'Go to Proposal Studio',
           actionType: 'navigate_proposal'
         };
+      } else if (lower.includes('next') || lower.includes('what should i do')) {
+        const rec = activeOpportunity.recommendation;
+        if (rec === 'do_not_pursue') {
+          reply = `Recommended next step: **Do not pursue** this opportunity.\n\n${activeOpportunity.recommendationReason}\n\nYou can record the decision in the Pipeline or review the risks in the Workspace.`;
+          action = { label: 'Open Workspace', actionType: 'navigate', page: 'workspace' };
+        } else if (rec === 'investigate') {
+          reply = `Recommended next step: **Investigate further** before committing.\n\n1. Review the open risks in the Workspace.\n2. Confirm capability gaps and staffing.\n3. Move the opportunity to Qualified in the Pipeline when ready.`;
+          action = { label: 'Open Workspace', actionType: 'navigate', page: 'workspace' };
+        } else {
+          reply = `Recommended next step: **Proceed to proposal**.\n\n1. Review requirements in the Workspace.\n2. Draft the proposal in Proposal Studio.\n3. Export to DOCX or PDF when ready.`;
+          action = { label: 'Open Proposal Studio', actionType: 'navigate_proposal' };
+        }
+      } else if (lower.includes('add') || lower.includes('upload') || lower.includes('new opportunity') || lower.includes('intake') || lower.includes('how do i')) {
+        reply = `To evaluate a new opportunity:\n\n1. Click **New Lead** in the header (or **New Opportunity** in the sidebar).\n2. Paste the tender, RFP, or discovery notes — or choose a sample.\n3. Click **Run Opportunity Evaluation**.\n\nNexusIQ extracts the requirements, scores the fit, and drafts a proposal brief.`;
+        action = { label: 'Go to Opportunities', actionType: 'navigate', page: 'opportunities' };
       } else {
-        reply = `Based on our analysis of **${activeOpportunity.title}**:\n\n• The client is **${activeOpportunity.organization}** with an estimated budget of **${activeOpportunity.estimatedBudget}**.\n• We have identified **${activeOpportunity.requirements.length} formal requirements** and **${activeOpportunity.risks.length} key risks**.\n• The proposal draft in Proposal Studio currently has all 8 sections generated and ready for export to .DOCX or .PDF.`;
+        const a = buildOpportunityAnalysis(activeOpportunity);
+        reply =
+          `**Opportunity Assessment — ${a.opportunity_title}**\n\n` +
+          `• Client: ${a.organization}\n` +
+          `• Industry: ${a.industry}\n` +
+          `• Budget: ${a.estimated_budget}\n` +
+          `• Deadline: ${a.deadline}\n` +
+          `• Requirements: ${a.requirements.length}\n` +
+          `• Risks: ${a.identified_risks.length}\n\n` +
+          `Open questions / missing information:\n${a.questions.map((q) => `• ${q}`).join('\n')}`;
         action = {
           label: 'Review Proposal Draft',
           actionType: 'navigate_proposal'
@@ -176,6 +208,8 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
       setTimeout(() => setCopiedId(null), 2000);
     } else if (action.actionType === 'navigate_proposal') {
       onNavigate('proposal-studio');
+    } else if (action.actionType === 'navigate' && action.page) {
+      onNavigate(action.page);
     } else if (action.actionType === 'insert_summary' && action.payload && onUpdateProposal) {
       const updated = {
         ...activeOpportunity.proposal,
@@ -189,11 +223,11 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
   };
 
   const quickPrompts = [
+    'How do I add an opportunity?',
+    'What should I do next?',
     'Summarize top risks',
-    'Draft Win Theme',
     'How is our capability fit?',
-    'Bid vs. No-Bid advice',
-    'How do I download the PDF/DOCX?'
+    'How do I export the proposal?'
   ];
 
   return (
@@ -244,8 +278,8 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
               ? 'bg-slate-800 text-white rotate-90 scale-95' 
               : 'bg-[#0F172A] hover:bg-slate-800 text-white hover:scale-105 border border-slate-700/80 shadow-slate-900/30'
           }`}
-          aria-label={isOpen ? 'Close Nexas AI Assistant' : 'Open Nexas AI Assistant'}
-          title="Nexas — Opportunity Intelligence Assistant"
+          aria-label={isOpen ? 'Close Nexas Assistant' : 'Open Nexas Assistant'}
+          title="Nexas — Setup Assistant"
         >
           {/* Online green indicator dot */}
           {!isOpen && (
@@ -277,7 +311,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">Nexas Intelligence</h3>
+                  <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">Nexas Assistant</h3>
                   <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-emerald-950 text-emerald-400 border border-emerald-800/80">
                     Online
                   </span>

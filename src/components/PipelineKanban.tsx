@@ -15,7 +15,7 @@ import { EnterprisePageId } from '../types';
 
 interface PipelineKanbanProps {
   opportunities: Opportunity[];
-  activeOpportunity: Opportunity;
+  activeOpportunity: Opportunity | null;
   onSelectOpportunity: (opp: Opportunity) => void;
   onUpdateOpportunityStage: (oppId: string, newStage: OpportunityStage) => void;
   onNavigate: (page: EnterprisePageId) => void;
@@ -254,7 +254,7 @@ export const PipelineKanban: React.FC<PipelineKanbanProps> = ({
                 {/* Cards List in Stage */}
                 <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[620px]">
                   {oppsInStage.map((opp) => {
-                    const isSelected = opp.id === activeOpportunity.id;
+                    const isSelected = opp.id === activeOpportunity?.id;
 
                     return (
                       <div

@@ -79,7 +79,7 @@ export const ProposalStudio: React.FC<ProposalStudioProps> = ({
   };
 
   const handleCopyClipboard = () => {
-    const fullText = `# PROPOSAL BRIEF: ${opportunity.title}\nPrepared by: ${companyName}\nClient: ${opportunity.organization}\nBudget: ${opportunity.estimatedBudget}\nSubmission Due: ${opportunity.deadline}\nOpportunity Fit Score: ${opportunity.overallScore}/100 (${opportunity.recommendation.toUpperCase()})\n\n` +
+    const fullText = `# PROPOSAL BRIEF: ${opportunity.title}\nPrepared by: ${companyName}\nClient: ${opportunity.organization}\nBudget: ${opportunity.estimatedBudget}\nSubmission Due: ${opportunity.deadline}\nOpportunity Score: ${opportunity.overallScore}/100 (${opportunity.recommendation.toUpperCase()})\n\n` +
       sections.map(s => `## ${s.title}\n${proposal[s.key]}\n\n`).join('---\n\n');
 
     navigator.clipboard.writeText(fullText);
@@ -233,7 +233,7 @@ export const ProposalStudio: React.FC<ProposalStudioProps> = ({
         new Paragraph({
           children: [
             new TextRun({ 
-              text: `CONFIDENTIAL  |  Generated via NexusIQ Opportunity-to-Proposal Intelligence  |  ${new Date().toLocaleDateString()}`,
+              text: `CONFIDENTIAL  |  Generated via NexusIQ  |  ${new Date().toLocaleDateString()}`,
               color: '94A3B8',
               size: 16,
               italics: true
@@ -324,7 +324,7 @@ export const ProposalStudio: React.FC<ProposalStudioProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(148, 163, 184);
-      doc.text('Opportunity-to-Proposal Intelligence Platform', margin + 85, 30);
+      doc.text('Opportunity-to-Proposal Platform', margin + 85, 30);
 
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
@@ -555,7 +555,7 @@ export const ProposalStudio: React.FC<ProposalStudioProps> = ({
             Proposal Document Studio
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Structured enterprise proposal drafting covering all 8 core proposal-ready sections with real .docx and .pdf exports.
+            Draft the 8 proposal sections and export to DOCX, PDF, or Markdown.
           </p>
         </div>
 

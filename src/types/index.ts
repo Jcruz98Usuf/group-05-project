@@ -25,9 +25,22 @@ export interface UserAccount {
   fullName: string;
   email: string;
   companyName: string;
-  companyWebsite?: string;
-  companyDescription?: string;
+  companyWebsite: string;
+  companyDescription: string;
   isOnboarded: boolean;
+  accountType?: AccountType;
+  industry?: string;
+  teamSize?: number;
+  goals?: string[];
+}
+
+export type AccountType = 'individual' | 'enterprise';
+
+export interface SetupAnswers {
+  accountType: AccountType;
+  industry: string;
+  teamSize: number;
+  goals: string[];
 }
 
 export interface SourceEvidence {
@@ -93,6 +106,13 @@ export interface ProposalDocument {
   lastUpdated: string;
 }
 
+export interface ScoreBreakdown {
+  businessFit: number;
+  capabilityMatch: number;
+  deliveryReadiness: number;
+  riskImpact: number;
+}
+
 export interface Opportunity {
   id: string;
   title: string;
@@ -105,6 +125,7 @@ export interface Opportunity {
   estimatedBudgetNumeric: number;
   stage: OpportunityStage;
   overallScore: number; // 0-100
+  scoreBreakdown?: ScoreBreakdown;
   riskLevel: RiskLevel;
   recommendation: RecommendationType;
   recommendationReason: string;
@@ -151,6 +172,7 @@ export interface CompanyCapabilityProfile {
     experienceYears: number;
     clearance?: string;
   }[];
+  needsConfirmation?: string[];
 }
 
 export interface ActivityEvent {

@@ -232,7 +232,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             >
               <span className="flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-[#38BDF8]" />
-                <span>Meet Nexas Assistant</span>
+                <span>Run Setup Assistant</span>
               </span>
               <span>&rarr;</span>
             </button>

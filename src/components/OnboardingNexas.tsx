@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { CompanyCapabilityProfile, UserAccount } from '../types';
+import { buildCapabilityProfile } from '../services/nexasEngine';
 import { 
   Building2, 
   Sparkles, 
@@ -69,7 +70,7 @@ export const OnboardingNexas: React.FC<OnboardingNexasProps> = ({
 
     setIsExtracting(true);
     setExtractionProgress(20);
-    setExtractionStep('Nexas analyzing company mission and services...');
+    setExtractionStep('Reading company description...');
     await new Promise((r) => setTimeout(r, 450));
 
     setExtractionProgress(50);
@@ -80,79 +81,15 @@ export const OnboardingNexas: React.FC<OnboardingNexasProps> = ({
     setExtractionStep('Synthesizing technical frameworks and delivery assets...');
     await new Promise((r) => setTimeout(r, 450));
 
-    // Dynamic generation based on description text
-    const text = companyDescription.toLowerCase();
-    const hasHealthcare = text.includes('health') || text.includes('fhir') || text.includes('hipaa') || text.includes('hospital');
-    const hasFintech = text.includes('fintech') || text.includes('payment') || text.includes('banking') || text.includes('fraud');
-
-    let industries = [
-      'Public Sector & Transit',
-      'Healthcare & Life Sciences',
-      'Financial Services & Fintech',
-      'Enterprise SaaS'
-    ];
-    if (hasHealthcare) {
-      industries = ['Healthcare & Life Sciences', 'Hospital Systems', 'Clinical Research', 'HealthTech'];
-    } else if (hasFintech) {
-      industries = ['Financial Services & Banking', 'Merchant Payments', 'Open Banking', 'E-Commerce'];
-    }
-
-    const generated: CompanyCapabilityProfile = {
+    // Evidence-based profile: only what the supplied description supports is asserted.
+    // Certifications, personnel, technologies and commercial figures are never invented.
+    const generated: CompanyCapabilityProfile = buildCapabilityProfile({
+      fullName: fullName.trim(),
+      email: email.trim(),
       companyName: companyName.trim(),
-      tagline: companyDescription.slice(0, 80) + '...',
-      annualRevenue: initialProfile.annualRevenue || '$28.4M',
-      teamSize: initialProfile.teamSize || 120,
-      primaryIndustries: industries,
-      services: [
-        {
-          name: 'Business Intelligence',
-          level: text.includes('power bi') || text.includes('bi') || text.includes('dashboard') ? 5 : 4,
-          description: 'Executive dashboards, Looker, Power BI, semantic reporting layers, and telemetry analytics.',
-          pastProjectsCount: 42
-        },
-        {
-          name: 'Data Engineering',
-          level: text.includes('data engineering') || text.includes('kafka') || text.includes('lakehouse') ? 5 : 4,
-          description: 'High-throughput stream processing, Apache Kafka, Snowflake lakehouses, and ETL data pipelines.',
-          pastProjectsCount: 48
-        },
-        {
-          name: 'Software Development',
-          level: text.includes('software') || text.includes('api') || text.includes('microservice') ? 5 : 4,
-          description: 'Cloud-native microservices, Next.js, Go, Python FastAPI, Kubernetes, and enterprise system integration.',
-          pastProjectsCount: 65
-        },
-        {
-          name: 'AI & Machine Learning',
-          level: text.includes('ai') || text.includes('ml') || text.includes('predictive') ? 5 : 4,
-          description: 'LLM orchestrations, RAG pipelines, time-series anomaly detection, and predictive maintenance.',
-          pastProjectsCount: 34
-        },
-        {
-          name: 'Consulting & Delivery',
-          level: text.includes('consulting') || text.includes('transformation') ? 5 : 4,
-          description: 'Digital transformation advisory, proposal governance, and agile delivery management.',
-          pastProjectsCount: 55
-        }
-      ],
-      certifications: [
-        { name: 'ISO 27001 Information Security', issuer: 'BSI Global', validThrough: '2028-12-31', status: 'Active' },
-        { name: 'SOC 2 Type II Compliance', issuer: 'AICPA Accredited', validThrough: '2027-08-30', status: 'Active' },
-        { name: 'HIPAA Security & Privacy Attestation', issuer: 'HealthSec Assurance', validThrough: '2027-11-15', status: 'Active' },
-        { name: 'AWS Premier Tier Partner', issuer: 'Amazon Web Services', validThrough: '2028-05-01', status: 'Active' }
-      ],
-      techStack: [
-        { category: 'AI & Machine Learning', technologies: ['Gemini 2.5 Flash', 'PyTorch', 'Vector Search', 'vLLM'] },
-        { category: 'Data & Streaming', technologies: ['Apache Kafka', 'Snowflake', 'Databricks', 'PostgreSQL', 'dbt'] },
-        { category: 'Cloud Infrastructure', technologies: ['Kubernetes (EKS/GKE)', 'Terraform', 'Docker', 'Cloud Run'] },
-        { category: 'Frontend & APIs', technologies: ['Next.js 15', 'React 19', 'TypeScript', 'FastAPI', 'TailwindCSS'] }
-      ],
-      keyPersonnel: [
-        { name: fullName.trim(), title: 'Head of Solutions & Capture', experienceYears: 15, clearance: 'Commercial' },
-        { name: 'Marcus Vance', title: 'VP of AI Architecture', experienceYears: 16, clearance: 'Secret' },
-        { name: 'David K. Chen', title: 'VP of Enterprise Delivery', experienceYears: 18, clearance: 'None' }
-      ]
-    };
+      about: companyDescription.trim(),
+      website: websiteUrl.trim()
+    });
 
     setExtractionProgress(100);
     setExtractionStep('Capability profile successfully generated by Nexas.');
@@ -207,7 +144,7 @@ export const OnboardingNexas: React.FC<OnboardingNexasProps> = ({
             Meet Nexas
           </h1>
           <p className="text-sm font-semibold text-[#2563EB]">
-            Your Opportunity Intelligence Assistant
+            Workspace Setup Assistant
           </p>
           <p className="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
             Nexas helps configure NexusIQ for your organization and prepares the platform to evaluate opportunities based on your capabilities.
@@ -376,7 +313,7 @@ export const OnboardingNexas: React.FC<OnboardingNexasProps> = ({
                 }`}
               >
                 <Sparkles className="w-4 h-4 text-white" />
-                <span>{isExtracting ? 'Nexas Extracting Profile...' : 'Generate Company Profile'}</span>
+                <span>{isExtracting ? 'Building Capability Profile...' : 'Generate Company Profile'}</span>
                 {!isExtracting && <ArrowRight className="w-4 h-4" />}
               </button>
             </div>
@@ -456,8 +393,27 @@ export const OnboardingNexas: React.FC<OnboardingNexasProps> = ({
                       {tech}
                     </span>
                   ))}
+                  {!extractedProfile.techStack.length && (
+                    <span className="text-[11px] text-slate-400">No technologies detected in the description.</span>
+                  )}
                 </div>
               </div>
+
+              {/* Needs Confirmation */}
+              {extractedProfile.needsConfirmation && extractedProfile.needsConfirmation.length > 0 && (
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 block mb-1.5">
+                    Needs Confirmation
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {extractedProfile.needsConfirmation.map((item, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-800 border border-amber-200">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
 
@@ -488,7 +444,7 @@ export const OnboardingNexas: React.FC<OnboardingNexasProps> = ({
 
       {/* Footer Assurance */}
       <div className="mt-4 text-center text-xs text-slate-400">
-        Nexas Enterprise AI • Zero telemetry sharing • Configurable in Settings
+        Nexas Setup • Your data stays in your workspace • Re-run setup anytime
       </div>
 
     </div>

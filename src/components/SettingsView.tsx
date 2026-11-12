@@ -11,17 +11,22 @@ import {
   Check, 
   Save, 
   Lock,
-  UserCheck
+  UserCheck,
+  Sparkles
 } from 'lucide-react';
 
 interface SettingsViewProps {
   companyProfile: CompanyCapabilityProfile;
   onUpdateProfile: (updated: CompanyCapabilityProfile) => void;
+  onRunSetup?: () => void;
+  setupCompleted?: boolean;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   companyProfile,
-  onUpdateProfile
+  onUpdateProfile,
+  onRunSetup,
+  setupCompleted
 }) => {
   const [aiSettings, setAiSettings] = useState<AIServiceSettings>(aiService.getSettings());
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
@@ -59,6 +64,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </button>
       </div>
 
+      {/* Setup Assistant */}
+      {onRunSetup && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#0F172A] flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-[#38BDF8]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">Setup Assistant</h3>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${setupCompleted ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                  {setupCompleted ? 'Completed' : 'Incomplete'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Capture your business profile, industry, team size, and goals so Nexas can tailor analysis.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onRunSetup}
+            className="shrink-0 px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-semibold shadow-xs transition-all self-start sm:self-auto"
+          >
+            {setupCompleted ? 'Re-run Setup' : 'Run Setup Assistant'}
+          </button>
+        </div>
+      )}
+
       {/* Section 1: Organization Details */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 space-y-4">
         <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 pb-2 border-b border-slate-100">
@@ -93,10 +126,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex items-center justify-between pb-2 border-b border-slate-100">
           <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Cpu className="w-4 h-4 text-[#2563EB]" />
-            <span>AI Provider Configuration</span>
+            <span>AI Provider</span>
           </h3>
           <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-            Engine Connected
+            Connected
           </span>
         </div>
 
@@ -106,7 +139,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
-            <label className="font-bold text-slate-700 block mb-1">Active AI Provider Engine</label>
+            <label className="font-bold text-slate-700 block mb-1">Active AI Provider</label>
             <select
               value={aiSettings.selectedProvider}
               onChange={(e) => setAiSettings({ ...aiSettings, selectedProvider: e.target.value as any })}
@@ -163,7 +196,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
           <div>
             <label className="font-bold text-slate-700 block mb-1">
-              Minimum AI Confidence Threshold for Gate Passage ({confidenceThreshold}%)
+              Minimum Confidence Threshold ({confidenceThreshold}%)
             </label>
             <input
               type="range"
