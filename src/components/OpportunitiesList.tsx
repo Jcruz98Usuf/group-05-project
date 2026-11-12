@@ -113,31 +113,31 @@ export const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Filter and Search Bar: Mobile-first vertical stack on < 768px */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 sm:p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
         
         {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+        <div className="relative w-full md:max-w-md">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             type="text"
             placeholder="Search by opportunity name, client, industry, or owner..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] focus:bg-white transition-all"
+            className="w-full min-h-[44px] pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] focus:bg-white transition-all"
           />
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Filters Grid on Mobile, Flex on Desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:flex md:flex-wrap items-center gap-2 sm:gap-3">
           
           {/* Status Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <span>Status:</span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1.5 text-xs text-slate-500">
+            <span className="font-semibold text-[11px] sm:text-xs">Status:</span>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+              className="w-full sm:w-auto min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
             >
               <option value="All">All Stages</option>
               <option value="new">New Intake</option>
@@ -151,12 +151,12 @@ export const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
           </div>
 
           {/* Risk Filter */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <span>Risk Level:</span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1.5 text-xs text-slate-500">
+            <span className="font-semibold text-[11px] sm:text-xs">Risk:</span>
             <select
               value={riskFilter}
               onChange={(e) => setRiskFilter(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+              className="w-full sm:w-auto min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
             >
               <option value="All">All Risks</option>
               <option value="Low">Low Risk</option>
@@ -166,12 +166,12 @@ export const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
           </div>
 
           {/* Sort By */}
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <span>Sort:</span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1.5 text-xs text-slate-500">
+            <span className="font-semibold text-[11px] sm:text-xs">Sort:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
+              className="w-full sm:w-auto min-h-[44px] px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
             >
               <option value="score">Opportunity Score</option>
               <option value="budget">Estimated Budget</option>
@@ -184,10 +184,107 @@ export const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
 
       </div>
 
-      {/* Main Table View */}
+      {/* Opportunities Display Area */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        
+        {/* Mobile-first Vertical Stack Cards for screens < 768px */}
+        <div className="md:hidden divide-y divide-slate-100 p-3 space-y-3.5">
+          {sorted.map((opp) => {
+            const isSelected = opp.id === activeOpportunity.id;
+
+            return (
+              <div
+                key={opp.id}
+                onClick={() => {
+                  onSelectOpportunity(opp);
+                  onNavigate('workspace');
+                }}
+                className={`p-4 rounded-xl border transition-all cursor-pointer space-y-3 ${
+                  isSelected 
+                    ? 'border-[#2563EB] bg-blue-50/30 ring-1 ring-[#2563EB]/20 shadow-xs' 
+                    : 'border-slate-200/90 bg-slate-50/40 active:bg-slate-100/70'
+                }`}
+              >
+                {/* Header: Org + Score + Decision */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
+                      {opp.organization} • {opp.industry}
+                    </span>
+                    <h3 className="text-sm font-bold text-slate-900 leading-snug line-clamp-2 mt-0.5">
+                      {opp.title}
+                    </h3>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold border inline-block ${getScoreBadge(opp.overallScore)}`}>
+                      {opp.overallScore}/100
+                    </span>
+                    <div className="mt-1">{getRecommendationBadge(opp.recommendation)}</div>
+                  </div>
+                </div>
+
+                {/* Metadata Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-200/60">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Budget Cap</span>
+                    <span className="font-mono font-bold text-slate-800">{opp.estimatedBudget}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Submission Deadline</span>
+                    <span className="font-medium text-slate-700">{opp.deadline}</span>
+                  </div>
+                </div>
+
+                {/* Status & Owner Bar */}
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="capitalize font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-[10px]">
+                      {opp.stage}
+                    </span>
+                    {getRiskBadge(opp.riskLevel)}
+                  </div>
+                  <span className="text-slate-500 truncate max-w-[140px]">
+                    Owner: <strong className="text-slate-700">{opp.assignedOwner.split(' ')[0]}</strong>
+                  </span>
+                </div>
+
+                {/* Touch-Friendly Action Buttons (Minimum 44px tap targets) */}
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectOpportunity(opp);
+                      onNavigate('workspace');
+                    }}
+                    className="min-h-[44px] py-2.5 px-3 rounded-xl bg-[#0F172A] active:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                  >
+                    <span>Workspace &rarr;</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectOpportunity(opp);
+                      onNavigate('proposal-studio');
+                    }}
+                    className="min-h-[44px] py-2.5 px-3 rounded-xl bg-blue-50 active:bg-blue-100 border border-blue-200 text-[#2563EB] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <span>Proposal Studio</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {sorted.length === 0 && (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              No opportunities match your filter criteria.
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Table for screens >= 768px */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-200">
               <tr>
                 <th className="py-3 px-4">Opportunity Name</th>
@@ -261,7 +358,7 @@ export const OpportunitiesList: React.FC<OpportunitiesListProps> = ({
                           onSelectOpportunity(opp);
                           onNavigate('workspace');
                         }}
-                        className="px-2.5 py-1 rounded bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-semibold shadow-2xs transition-colors"
+                        className="min-h-[38px] px-3 py-1.5 rounded-lg bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-semibold shadow-2xs transition-colors"
                       >
                         View Details
                       </button>

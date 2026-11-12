@@ -183,19 +183,39 @@ export const CapabilityManager: React.FC<CapabilityManagerProps> = ({
                 </div>
               </div>
 
-              {/* Slider */}
-              <div className="pt-2 flex items-center gap-3">
-                <span className="text-[10px] font-semibold text-slate-400">L1 Baseline</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={5}
-                  step={1}
-                  value={svc.level}
-                  onChange={(e) => handleServiceLevelChange(idx, Number(e.target.value))}
-                  className="flex-1 accent-[#2563EB] cursor-pointer"
-                />
-                <span className="text-[10px] font-semibold text-slate-400">L5 Master</span>
+              {/* Slider & Discrete Touch Targets */}
+              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4">
+                <div className="flex-1 flex items-center gap-2.5">
+                  <span className="text-[10px] font-bold text-slate-400 shrink-0">L1</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={5}
+                    step={1}
+                    value={svc.level}
+                    onChange={(e) => handleServiceLevelChange(idx, Number(e.target.value))}
+                    className="flex-1 accent-[#2563EB] cursor-pointer min-h-[36px]"
+                  />
+                  <span className="text-[10px] font-bold text-slate-400 shrink-0">L5</span>
+                </div>
+
+                {/* Discrete Touch Tap Targets (1-5) */}
+                <div className="flex items-center justify-between sm:justify-start gap-1.5 pt-1.5 sm:pt-0 border-t sm:border-t-0 border-slate-200/60">
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      onClick={() => handleServiceLevelChange(idx, lvl)}
+                      className={`min-h-[38px] min-w-[38px] rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
+                        svc.level === lvl
+                          ? 'bg-[#2563EB] text-white shadow-2xs scale-105'
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 active:bg-slate-200'
+                      }`}
+                    >
+                      {lvl}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           ))}

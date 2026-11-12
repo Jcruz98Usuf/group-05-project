@@ -96,25 +96,25 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <button
             onClick={() => onNavigate('pipeline')}
-            className="px-3.5 py-2 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-700 transition-all flex items-center gap-1.5 shadow-2xs"
+            className="min-h-[44px] px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-700 transition-all flex items-center justify-center gap-1.5 shadow-2xs active:bg-slate-50"
           >
             <span>Pipeline Overview</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onOpenNewOpportunityModal}
-            className="px-3.5 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5"
+            className="min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-600 active:bg-blue-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center justify-center gap-1.5"
           >
             <span>Analyze New Opportunity</span>
           </button>
         </div>
       </div>
 
-      {/* Top 5 KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      {/* Top 5 KPI Cards: Mobile-first vertical stack on < 640px, 2-col on sm, 3-col on md, 5-col on lg */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         
         {/* KPI 1: Active Opportunities */}
         <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs">
@@ -307,7 +307,64 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile-first Vertical Stack Cards for screens < 768px */}
+          <div className="md:hidden divide-y divide-slate-100 p-3 space-y-3">
+            {opportunities.slice(0, 5).map((opp) => (
+              <div
+                key={opp.id}
+                onClick={() => {
+                  onSelectOpportunity(opp);
+                  onNavigate('workspace');
+                }}
+                className="bg-slate-50/70 active:bg-blue-50/50 p-4 rounded-xl border border-slate-200/80 space-y-3 transition-colors cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
+                      {opp.organization}
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 mt-0.5">
+                      {opp.title}
+                    </h4>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-bold border shrink-0 ${getScoreBadge(opp.overallScore)}`}>
+                    {opp.overallScore}/100
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-200/60 text-slate-600">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Budget Cap</span>
+                    <span className="font-mono font-bold text-slate-800">{opp.estimatedBudget}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Decision</span>
+                    <div className="mt-0.5">{getRecommendationBadge(opp.recommendation)}</div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                  <span>Risk: <strong className={opp.riskLevel === 'High' ? 'text-rose-600' : 'text-slate-700'}>{opp.riskLevel}</strong></span>
+                  <span>Owner: <strong className="text-slate-700">{opp.assignedOwner.split(' ')[0]}</strong></span>
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectOpportunity(opp);
+                    onNavigate('workspace');
+                  }}
+                  className="min-h-[44px] w-full py-2.5 px-3 rounded-lg bg-white active:bg-blue-50 border border-slate-200 text-xs font-bold text-[#2563EB] flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                >
+                  <span>Open Opportunity Workspace</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table for screens >= 768px */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider border-b border-slate-100">
                 <tr>
@@ -360,7 +417,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                           onSelectOpportunity(opp);
                           onNavigate('workspace');
                         }}
-                        className="text-xs font-semibold text-[#2563EB] hover:underline"
+                        className="min-h-[44px] px-3 py-2 text-xs font-semibold text-[#2563EB] hover:underline inline-flex items-center gap-1"
                       >
                         Open Workspace &rarr;
                       </button>

@@ -200,7 +200,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
     <>
       {/* Teaser pill before opening (like enterprise Intercom / Drift chat) */}
       {!isOpen && !isTeaserDismissed && (
-        <div className="fixed bottom-24 right-6 z-40 max-w-xs bg-white rounded-xl shadow-xl border border-slate-200 p-3 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-20 sm:bottom-24 right-4 sm:right-6 z-40 max-w-[calc(100vw-2rem)] sm:max-w-xs bg-white rounded-xl shadow-xl border border-slate-200 p-3 flex items-start gap-3 animate-in fade-in slide-in-from-bottom-2">
           <div className="w-8 h-8 rounded-lg bg-[#0F172A] text-white flex items-center justify-center shrink-0 shadow-2xs">
             <Sparkles className="w-4 h-4 text-[#38BDF8]" />
           </div>
@@ -233,13 +233,13 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
       )}
 
       {/* Floating Chat Launcher Button (Bottom Right) */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50">
         <button
           onClick={() => {
             setIsOpen(!isOpen);
             setIsTeaserDismissed(true);
           }}
-          className={`relative group w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
+          className={`relative group w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
             isOpen 
               ? 'bg-slate-800 text-white rotate-90 scale-95' 
               : 'bg-[#0F172A] hover:bg-slate-800 text-white hover:scale-105 border border-slate-700/80 shadow-slate-900/30'
@@ -249,17 +249,17 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
         >
           {/* Online green indicator dot */}
           {!isOpen && (
-            <span className="absolute top-1 right-1 flex h-3.5 w-3.5">
+            <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 flex h-3 w-3 sm:h-3.5 sm:w-3.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-[#0F172A]"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 sm:h-3.5 sm:w-3.5 bg-emerald-500 border-2 border-[#0F172A]"></span>
             </span>
           )}
 
           {isOpen ? (
-            <X className="w-6 h-6 text-white" />
+            <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
           ) : (
             <div className="flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-[#38BDF8] group-hover:scale-110 transition-transform" />
+              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-[#38BDF8] group-hover:scale-110 transition-transform" />
             </div>
           )}
         </button>
@@ -267,7 +267,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
 
       {/* Chat Window Panel */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-50 w-[92vw] sm:w-[410px] h-[580px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 font-sans">
+        <div className="fixed bottom-20 sm:bottom-24 right-3 sm:right-6 z-50 w-[calc(100vw-1.5rem)] max-w-[410px] sm:w-[410px] h-[520px] sm:h-[580px] max-h-[78vh] bg-white rounded-2xl shadow-2xl border border-slate-200/90 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 font-sans">
           
           {/* Header */}
           <div className="bg-[#0F172A] p-4 text-white flex items-center justify-between border-b border-slate-800 shrink-0">

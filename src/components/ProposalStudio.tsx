@@ -559,49 +559,50 @@ export const ProposalStudio: React.FC<ProposalStudioProps> = ({
           </p>
         </div>
 
-        {/* Action Controls & Download Menu */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Action Controls & Download Menu: Mobile-first wrap with 44px tap targets */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full lg:w-auto">
           {/* Quick Copy */}
           <button
             onClick={handleCopyClipboard}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-700 transition-colors flex items-center gap-1.5 shadow-2xs hover:bg-slate-50"
+            className="min-h-[44px] px-3 py-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-700 transition-colors flex items-center justify-center gap-1.5 shadow-2xs hover:bg-slate-50 active:bg-slate-100"
             title="Copy formatted proposal text to clipboard"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
-            <span>{copied ? 'Copied Full Proposal!' : 'Copy Text'}</span>
+            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
+            <span className="truncate">{copied ? 'Copied!' : 'Copy Text'}</span>
           </button>
 
           {/* Download Word (.docx) Button */}
           <button
             onClick={handleExportDOCX}
             disabled={isExporting}
-            className="px-3.5 py-1.5 rounded-lg border border-blue-200 hover:border-blue-300 bg-blue-50/70 hover:bg-blue-100/70 text-xs font-semibold text-[#2563EB] transition-colors flex items-center gap-1.5 shadow-2xs"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl border border-blue-200 hover:border-blue-300 bg-blue-50/70 hover:bg-blue-100/70 text-xs font-bold text-[#2563EB] transition-colors flex items-center justify-center gap-1.5 shadow-2xs active:bg-blue-200/60"
             title="Download formatted Microsoft Word .docx document"
           >
             <FileDown className="w-4 h-4 text-[#2563EB]" />
-            <span>Download .DOCX</span>
+            <span>.DOCX</span>
           </button>
 
           {/* Download PDF Button */}
           <button
             onClick={handleExportPDF}
             disabled={isExporting}
-            className="px-3.5 py-1.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors flex items-center gap-1.5"
+            className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 active:bg-slate-900"
             title="Download executive formatted PDF document"
           >
             <Download className="w-4 h-4 text-[#38BDF8]" />
-            <span>Download .PDF</span>
+            <span>.PDF</span>
           </button>
 
           {/* More Export Formats Dropdown */}
           <div className="relative">
             <button
               onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1 shadow-2xs"
+              className="min-h-[44px] w-full sm:w-auto px-3 py-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
               title="More export options"
             >
-              <Sliders className="w-3.5 h-3.5 text-slate-500" />
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <Sliders className="w-4 h-4 text-slate-500" />
+              <span className="sm:hidden font-medium">Formats</span>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
 
             {isExportMenuOpen && (
@@ -710,31 +711,57 @@ export const ProposalStudio: React.FC<ProposalStudioProps> = ({
           </h2>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto shrink-0">
           <button
             onClick={handleExportPDF}
             disabled={isExporting}
-            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-2xs"
+            className="min-h-[44px] px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-4 h-4" />
             <span>Download .PDF</span>
           </button>
           <button
             onClick={handleExportDOCX}
             disabled={isExporting}
-            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 border border-white/20"
+            className="min-h-[44px] px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/25 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-white/20"
           >
-            <FileDown className="w-3.5 h-3.5 text-[#38BDF8]" />
+            <FileDown className="w-4 h-4 text-[#38BDF8]" />
             <span>Download .DOCX</span>
           </button>
+        </div>
+      </div>
+
+      {/* Mobile Horizontal Section Selector Strip */}
+      <div className="lg:hidden bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-2">
+        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <span>Active Section ({sections.findIndex(s => s.key === activeSection) + 1}/8)</span>
+          <span className="text-[#2563EB] font-sans">Swipe to switch &rarr;</span>
+        </div>
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+          {sections.map((s) => {
+            const isSelected = activeSection === s.key;
+            return (
+              <button
+                key={s.key}
+                onClick={() => setActiveSection(s.key)}
+                className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all ${
+                  isSelected
+                    ? 'bg-[#2563EB] text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 active:bg-slate-200'
+                }`}
+              >
+                {s.title}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Main Studio Workspace: Outline on Left, Editor on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Left Section Outline (4 cols) */}
-        <div className="lg:col-span-4 bg-white rounded-xl border border-slate-200 shadow-2xs p-4 space-y-3">
+        {/* Left Section Outline (Desktop: 4 cols) */}
+        <div className="hidden lg:block lg:col-span-4 bg-white rounded-xl border border-slate-200 shadow-2xs p-4 space-y-3">
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Proposal Sections (8)

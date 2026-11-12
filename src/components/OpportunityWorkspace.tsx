@@ -100,63 +100,63 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <div className="text-2xl font-black text-slate-900">
+        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+          <div className="text-left sm:text-right">
+            <div className="text-xl sm:text-2xl font-black text-slate-900 leading-none">
               {opportunity.overallScore}
               <span className="text-xs font-normal text-slate-400">/100</span>
             </div>
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
               Opportunity Fit
             </div>
           </div>
           <button
             onClick={() => onNavigate('proposal-studio')}
-            className="px-3.5 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5"
+            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-600 active:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
           >
-            <FileText className="w-3.5 h-3.5" />
+            <FileText className="w-4 h-4" />
             <span>Open Proposal Studio</span>
           </button>
         </div>
       </div>
 
-      {/* Decision Support Recommendation Banner */}
-      <div className={`p-4 rounded-xl border ${banner.containerBg} flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs`}>
+      {/* Decision Support Recommendation Banner: Mobile-first vertical stack on < 768px */}
+      <div className={`p-4 sm:p-5 rounded-xl border ${banner.containerBg} flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs`}>
         <div className="flex items-start gap-3">
-          <div className="p-1.5 rounded-lg bg-white shadow-2xs mt-0.5">
+          <div className="p-2 rounded-xl bg-white shadow-2xs mt-0.5 shrink-0">
             {banner.icon}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${banner.badgeColor}`}>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border ${banner.badgeColor}`}>
                 {banner.title}
               </span>
               <span className="text-xs text-slate-600 font-medium">
                 Decision Support Protocol
               </span>
             </div>
-            <p className="text-xs text-slate-700 mt-1.5 leading-relaxed font-medium">
+            <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium pt-0.5">
               {opportunity.recommendationReason}
             </p>
           </div>
         </div>
 
-        <div className="shrink-0 flex items-center gap-2">
+        <div className="shrink-0 w-full md:w-auto">
           <button
             onClick={() => {
               if (banner.targetPage === 'proposal-studio') onNavigate('proposal-studio');
               else setActiveTab('risks');
             }}
-            className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-300 text-xs font-bold text-slate-800 shadow-2xs transition-colors flex items-center gap-1"
+            className="min-h-[44px] w-full md:w-auto px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 active:bg-slate-100 border border-slate-300 text-xs font-bold text-slate-800 shadow-2xs transition-colors flex items-center justify-center gap-1.5"
           >
             <span>{banner.actionText}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Enterprise Tabs Navigation */}
-      <div className="border-b border-slate-200 flex items-center gap-2">
+      <div className="border-b border-slate-200 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth pb-0.5">
         {[
           { id: 'overview', label: 'Overview', count: null },
           { id: 'capability', label: 'Capability Match', count: `${opportunity.capabilities.length} Domains` },
@@ -169,7 +169,7 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`py-3 px-4 text-xs font-semibold flex items-center gap-2 border-b-2 transition-all ${
+              className={`py-3 px-4 text-xs font-semibold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap shrink-0 ${
                 isActive
                   ? 'border-[#2563EB] text-[#2563EB] bg-blue-50/30'
                   : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'

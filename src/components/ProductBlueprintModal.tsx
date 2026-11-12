@@ -172,8 +172,8 @@ model ProposalDocument {
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="px-6 border-b border-slate-200 bg-slate-50 flex items-center gap-2 overflow-x-auto text-xs font-semibold">
+        {/* Tab Navigation: Mobile touch-friendly scroll */}
+        <div className="px-4 sm:px-6 border-b border-slate-200 bg-slate-50 flex items-center gap-2 overflow-x-auto no-scrollbar scroll-smooth text-xs font-semibold">
           {[
             { id: 'methodology', label: 'Scoring & Matching Methodology' },
             { id: 'wireframes', label: 'Screen Wireframes & Hierarchy' },
@@ -184,10 +184,10 @@ model ProposalDocument {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`py-3 px-3.5 border-b-2 transition-colors whitespace-nowrap ${
+              className={`min-h-[44px] py-2.5 px-3.5 border-b-2 transition-colors whitespace-nowrap shrink-0 flex items-center ${
                 activeTab === tab.id
                   ? 'border-[#2563EB] text-[#2563EB] bg-white font-bold shadow-2xs'
-                  : 'border-transparent text-slate-600 hover:text-slate-900'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 active:bg-slate-100'
               }`}
             >
               {tab.label}
