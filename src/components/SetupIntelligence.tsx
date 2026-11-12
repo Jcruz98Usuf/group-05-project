@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   AccountType,
   CompanyCapabilityProfile,
@@ -76,13 +76,6 @@ export const SetupIntelligence: React.FC<SetupIntelligenceProps> = ({
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
   const isLast = step === STEPS.length - 1;
-  const canContinue = useMemo(() => {
-    if (step === 0) return companyName.trim().length > 1;
-    if (step === 1) return industry.trim().length > 0;
-    if (step === 2) return teamSize > 0;
-    return true;
-  }, [step, companyName, industry, teamSize]);
-
   const toggleGoal = (goal: string) => {
     setGoals((prev) => (prev.includes(goal) ? prev.filter((g) => g !== goal) : [...prev, goal]));
   };
@@ -182,9 +175,9 @@ export const SetupIntelligence: React.FC<SetupIntelligenceProps> = ({
                   {step === 3 && 'What are your primary goals?'}
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  {step === 0 && 'This lets Nexas tailor capability matching and proposal generation to your organization.'}
-                  {step === 1 && 'We use your sector to prioritize relevant opportunities and compliance requirements.'}
-                  {step === 2 && 'Team size helps Nexas estimate delivery readiness and resourcing.'}
+                  {step === 0 && 'Share any details you already know. You can leave fields blank and let Nexas learn from your chats.'}
+                  {step === 1 && 'Industry helps prioritize relevant opportunities and compliance requirements; you can add it later.'}
+                  {step === 2 && 'Team size helps estimate delivery readiness; you can add it later.'}
                   {step === 3 && 'Select everything that applies — you can refine these later in Settings.'}
                 </p>
               </div>
@@ -345,7 +338,6 @@ export const SetupIntelligence: React.FC<SetupIntelligenceProps> = ({
               )}
               <button
                 onClick={() => (isLast ? handleComplete() : setStep((s) => s + 1))}
-                disabled={!canContinue}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md transition-all"
               >
                 {isLast ? 'Finish Setup' : 'Continue'}

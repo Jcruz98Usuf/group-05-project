@@ -116,7 +116,7 @@ export const EditCompanyInfo: React.FC<EditCompanyInfoProps> = ({ account, profi
 
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <label className="text-[11px] font-bold text-slate-700">Website</label>
+            <label className="text-[11px] font-bold text-slate-700">Website (optional)</label>
             {isLearned('companyWebsite') && <LearnedBadge />}
           </div>
           <input
@@ -238,6 +238,25 @@ export const EditCompanyInfo: React.FC<EditCompanyInfoProps> = ({ account, profi
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {profile.learnedServices && profile.learnedServices.length > 0 && (
+        <div className="pt-3 border-t border-slate-100">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+            <span className="text-[11px] font-bold text-slate-700">Services mentioned in chat</span>
+          </div>
+          <p className="text-[10px] text-slate-500 mb-2">
+            Review these mentions and add verified delivery capabilities in Capability Manager when appropriate.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {profile.learnedServices.map((service) => (
+              <span key={service} className="px-2 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-200 text-[10px]">
+                {service}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>

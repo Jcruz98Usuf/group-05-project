@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Opportunity, CompanyCapabilityProfile } from '../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { Opportunity, CompanyCapabilityProfile, OpportunityDraft } from '../types';
 import { aiService } from '../services/aiRouter';
 import {
   uploadTenantDocument,
@@ -24,13 +24,15 @@ interface NewOpportunityModalProps {
   onClose: () => void;
   companyProfile: CompanyCapabilityProfile;
   onOpportunityCreated: (opp: Opportunity) => void;
+  initialDraft?: OpportunityDraft | null;
 }
 
 export const NewOpportunityModal: React.FC<NewOpportunityModalProps> = ({
   isOpen,
   onClose,
   companyProfile,
-  onOpportunityCreated
+  onOpportunityCreated,
+  initialDraft
 }) => {
   const [documentName, setDocumentName] = useState('');
   const [rawText, setRawText] = useState('');
@@ -42,6 +44,15 @@ export const NewOpportunityModal: React.FC<NewOpportunityModalProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setDocumentName(initialDraft?.title ?? '');
+    setRawText(initialDraft?.sourceText ?? '');
+    setSelectedPreset(null);
+    setAttachments([]);
+    setUploadError('');
+  }, [isOpen, initialDraft]);
 
   if (!isOpen) return null;
 

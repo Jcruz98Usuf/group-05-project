@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Opportunity, CompanyCapabilityProfile, ProposalDocument, EnterprisePageId } from '../types';
-import { buildCapabilityMatch, buildOpportunityAnalysis } from '../services/nexasEngine';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Opportunity, CompanyCapabilityProfile, ProposalDocument, EnterprisePageId, CompanyFacts, NexasChatMessage, OpportunityDraft } from '../types';
+import { buildCapabilityMatch } from '../services/nexasEngine';
 import { extractDocumentText } from '../services/storageService';
-import { generateText } from '../services/aiProvider';
+import { generateNexasChatReply, NexasChatReply } from '../services/nexasChat';
 import { 
   MessageSquare, 
   X, 
@@ -23,43 +23,39 @@ import {
   Paperclip
 } from 'lucide-react';
 
-interface ChatMessage {
-  id: string;
-  sender: 'assistant' | 'user';
-  text: string;
-  timestamp: string;
-  suggestedAction?: {
-    label: string;
-    actionType: 'copy' | 'navigate_proposal' | 'insert_summary' | 'navigate';
-    payload?: string;
-    page?: EnterprisePageId;
-  };
-}
-
 interface NexasChatbotBubbleProps {
-  activeOpportunity: Opportunity;
+  activeOpportunity: Opportunity | null;
   companyProfile: CompanyCapabilityProfile;
-  currentPage: EnterprisePageId;
+  messages: NexasChatMessage[];
+  isOpen: boolean;
+  onMessagesChange: (messages: NexasChatMessage[]) => void;
+  onOpenChange: (isOpen: boolean) => void;
   onNavigate: (page: EnterprisePageId) => void;
   onUpdateProposal?: (updated: ProposalDocument) => void;
+  onLearnFacts: (facts: CompanyFacts) => void;
+  onReviewOpportunity: (draft: OpportunityDraft) => void;
 }
 
 export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
   activeOpportunity,
   companyProfile,
-  currentPage,
+  messages,
+  isOpen,
+  onMessagesChange,
+  onOpenChange,
   onNavigate,
-  onUpdateProposal
+  onUpdateProposal,
+  onLearnFacts,
+  onReviewOpportunity
 }) => {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isTeaserDismissed, setIsTeaserDismissed] = useState<boolean>(false);
   const [inputMessage, setInputMessage] = useState<string>('');
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
 
-  const initialGreeting: ChatMessage = {
-    id: 'msg-init-1',
+  const initialGreeting = useMemo<NexasChatMessage>(() => activeOpportunity ? ({
+    id: `msg-init-${activeOpportunity.id}`,
     sender: 'assistant',
     text: `Hi, I'm Nexas, your Opportunity-to-Proposal Intelligence Assistant.\n\nYou're reviewing **${activeOpportunity.title}** for **${activeOpportunity.organization}**.\n\n• Opportunity Score: **${activeOpportunity.overallScore}/100**\n• Recommendation: **${activeOpportunity.recommendation.toUpperCase().replace(/_/g, ' ')}**\n• Estimated Budget: **${activeOpportunity.estimatedBudget}**\n\nWhat would you like to do next?`,
     timestamp: 'Just now',
@@ -68,36 +64,33 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
       actionType: 'copy',
       payload: `Our team brings proven enterprise capabilities in distributed architecture and predictive intelligence to guarantee sub-second performance for ${activeOpportunity.organization}.`
     }
-  };
+  }) : ({
+    id: 'msg-init-general',
+    sender: 'assistant',
+    text: 'Hi, I’m Nexas, your business assistant. Ask me about your business or describe a possible new opportunity. I’ll ask before adding anything.',
+    timestamp: 'Just now'
+  }), [activeOpportunity]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([initialGreeting]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom when messages update
   useEffect(() => {
-    if (isOpen) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, isOpen]);
+    if (!messages.length) onMessagesChange([initialGreeting]);
+  }, [messages.length, onMessagesChange, initialGreeting]);
 
-  // Update initial message when active opportunity changes if chat was fresh
   useEffect(() => {
-    if (messages.length <= 1) {
-      setMessages([
-        {
-          id: `msg-opp-${activeOpportunity.id}`,
-          sender: 'assistant',
-          text: `Switched to **${activeOpportunity.title}** (${activeOpportunity.organization}).\n\nOpportunity Score: **${activeOpportunity.overallScore}/100** • Recommendation: **${activeOpportunity.recommendation.toUpperCase().replace(/_/g, ' ')}**.\n\nAsk me about next steps, requirement gaps, or proposal drafting!`,
-          timestamp: 'Just now'
-        }
-      ]);
-    }
-  }, [activeOpportunity.id]);
+    if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isOpen, isTyping]);
 
   /** Deterministic, data-grounded reply used when no AI provider is configured. */
-  const buildDeterministicReply = (query: string): { text: string; action?: ChatMessage['suggestedAction'] } => {
+  const buildDeterministicReply = (query: string): { text: string; action?: NexasChatMessage['suggestedAction'] } => {
+    if (!activeOpportunity) {
+      return {
+        text: 'I can help with general business questions and opportunity planning. Tell me a little more about what you need, and I’ll do my best to help.'
+      };
+    }
+
     let reply = '';
-    let action: ChatMessage['suggestedAction'] | undefined = undefined;
+    let action: NexasChatMessage['suggestedAction'] | undefined = undefined;
     const lower = query.toLowerCase();
 
     if (lower.includes('risk') || lower.includes('danger') || lower.includes('threat')) {
@@ -159,103 +152,91 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
       reply = `To evaluate a new opportunity:\n\n1. Click **New Lead** in the header (or **New Opportunity** in the sidebar).\n2. Paste the tender, RFP, or discovery notes — or choose a sample.\n3. Click **Run Opportunity Evaluation**.\n\nNexusIQ extracts the requirements, scores the fit, and drafts a proposal brief.`;
       action = { label: 'Go to Opportunities', actionType: 'navigate', page: 'opportunities' };
     } else {
-      const a = buildOpportunityAnalysis(activeOpportunity);
-      reply =
-        `**Opportunity Assessment — ${a.opportunity_title}**\n\n` +
-        `• Client: ${a.organization}\n` +
-        `• Industry: ${a.industry}\n` +
-        `• Budget: ${a.estimated_budget}\n` +
-        `• Deadline: ${a.deadline}\n` +
-        `• Requirements: ${a.requirements.length}\n` +
-        `• Risks: ${a.identified_risks.length}\n\n` +
-        `Open questions / missing information:\n${a.questions.map((q) => `• ${q}`).join('\n')}`;
-      action = {
-        label: 'Review Proposal Draft',
-        actionType: 'navigate_proposal'
-      };
+      reply = 'I couldn’t get an AI response just now. Please try again in a moment; your message is still saved in this chat.';
     }
 
     return { text: reply, action };
   };
 
-  /** Ask the dual-provider gateway (Gemini → Groq). Returns null when unavailable. */
-  const tryAiReply = async (query: string): Promise<string | null> => {
-    try {
-      const capabilitySummary = companyProfile.services.map((s) => s.name).join(', ') || 'not yet provided';
-      const certSummary = companyProfile.certifications.map((c) => c.name).join(', ') || 'not yet provided';
-      const system =
-        `You are Nexas, an enterprise opportunity-to-proposal assistant for ${companyProfile.companyName || 'the user'}. ` +
-        `Company capabilities: ${capabilitySummary}. Certifications: ${certSummary}. ` +
-        `Current opportunity: "${activeOpportunity.title}" for ${activeOpportunity.organization} ` +
-        `(industry: ${activeOpportunity.industry}, budget: ${activeOpportunity.estimatedBudget}, deadline: ${activeOpportunity.deadline}, ` +
-        `score: ${activeOpportunity.overallScore}/100, recommendation: ${activeOpportunity.recommendation}). ` +
-        `Answer concisely using markdown. Never fabricate capabilities, certifications, personnel, pricing, or references. ` +
-        `If information is missing, say so and suggest where to add it.`;
+  const tryAiReply = (conversation: NexasChatMessage[]): Promise<NexasChatReply | null> =>
+    generateNexasChatReply(conversation, companyProfile, activeOpportunity ?? undefined);
 
-      const result = await generateText({ system, prompt: query, maxTokens: 500, temperature: 0.4 });
-      const text = result?.text?.trim();
-      return text ? text : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const handleSendMessage = (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || inputMessage.trim();
-    if (!query) return;
+    if (!query || isTyping) return;
 
-    const userMsg: ChatMessage = {
+    const userMsg: NexasChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
       text: query,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const conversation = [...(messages.length ? messages : [initialGreeting]), userMsg];
+    onMessagesChange(conversation);
     setInputMessage('');
     setIsTyping(true);
 
-    void (async () => {
-      const aiText = await tryAiReply(query);
-      const fallback = aiText ? null : buildDeterministicReply(query);
-
-      const botMsg: ChatMessage = {
+    try {
+      const response = await tryAiReply(conversation);
+      if (response?.companyFacts) onLearnFacts(response.companyFacts);
+      const fallback = response ? null : buildDeterministicReply(query);
+      const botMsg: NexasChatMessage = {
         id: `asst-${Date.now()}`,
         sender: 'assistant',
-        text: aiText ?? fallback!.text,
+        text: response?.reply ?? fallback?.text ?? 'I couldn’t reach the AI service just now. Please try again in a moment; your message is still saved in this chat.',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestedAction: aiText ? undefined : fallback!.action
+        suggestedAction: response ? undefined : fallback?.action,
+        opportunityDraft: response?.opportunityDraft
       };
-
-      setMessages((prev) => [...prev, botMsg]);
+      onMessagesChange([...conversation, botMsg]);
+    } catch (error) {
+      console.error('Opportunity chat request failed:', error);
+      onMessagesChange([
+        ...conversation,
+        {
+          id: `asst-error-${Date.now()}`,
+          sender: 'assistant',
+          text: 'I couldn’t reach the AI service just now. Please try again in a moment; your message is still saved in this chat.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    } finally {
       setIsTyping(false);
-    })();
+    }
   };
 
   const handleAttachFile = async (file: File) => {
-    const text = await extractDocumentText(file);
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `user-file-${Date.now()}`,
-        sender: 'user',
-        text: `📎 Attached: ${file.name}${text ? `\n\n${text.slice(0, 400)}` : ''}`,
-        timestamp: time
-      },
-      {
-        id: `asst-file-${Date.now()}`,
-        sender: 'assistant',
-        text: text
-          ? `I've received **${file.name}** and extracted its text. I can reference its contents when you ask about requirements, risks, or fit.`
-          : `I've received **${file.name}**. This file type has no extractable text, but it is attached to our conversation.`,
-        timestamp: time
+    try {
+      const text = await extractDocumentText(file);
+      if (!text.trim()) {
+        onMessagesChange([
+          ...messages,
+          {
+            id: `user-file-${Date.now()}`,
+            sender: 'user',
+            text: `Attached: ${file.name}. No readable text could be extracted.`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ]);
+        return;
       }
-    ]);
+      await handleSendMessage(`Please review the attached document for this opportunity and answer based on its contents.\n\n${file.name}\n\n${text.slice(0, 12000)}`);
+    } catch (error) {
+      console.error('Could not read the opportunity document:', error);
+      onMessagesChange([
+        ...messages,
+        {
+          id: `user-file-error-${Date.now()}`,
+          sender: 'assistant',
+          text: `I couldn’t read ${file.name}. Please try another file or paste its text into the chat.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
+    }
   };
 
-  const handleActionClick = (action: ChatMessage['suggestedAction']) => {
+  const handleActionClick = (action: NexasChatMessage['suggestedAction']) => {
     if (!action) return;
 
     if (action.actionType === 'copy' && action.payload) {
@@ -266,7 +247,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
       onNavigate('proposal-studio');
     } else if (action.actionType === 'navigate' && action.page) {
       onNavigate(action.page);
-    } else if (action.actionType === 'insert_summary' && action.payload && onUpdateProposal) {
+    } else if (action.actionType === 'insert_summary' && action.payload && onUpdateProposal && activeOpportunity) {
       const updated = {
         ...activeOpportunity.proposal,
         executiveSummary: `${action.payload}\n\n${activeOpportunity.proposal.executiveSummary}`,
@@ -278,13 +259,16 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
     }
   };
 
-  const quickPrompts = [
+  const opportunityPrompts = [
     'How do I add an opportunity?',
     'What should I do next?',
     'Summarize top risks',
     'How is our capability fit?',
     'How do I export the proposal?'
   ];
+  const quickPrompts = activeOpportunity
+    ? opportunityPrompts
+    : ['Help me think through a business decision.', 'What information should I track for a new opportunity?'];
 
   return (
     <>
@@ -309,10 +293,12 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
               </button>
             </div>
             <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-2">
-              Have questions about <strong>{activeOpportunity.organization}</strong> ({activeOpportunity.overallScore}/100 fit)? Ask me anything!
+              {activeOpportunity
+                ? <>Have questions about <strong>{activeOpportunity.organization}</strong> ({activeOpportunity.overallScore}/100 fit)? Ask me anything!</>
+                : 'Ask a business question or tell me about an opportunity you’re considering.'}
             </p>
             <button
-              onClick={() => setIsOpen(true)}
+              onClick={() => onOpenChange(true)}
               className="mt-1.5 text-[11px] font-semibold text-[#2563EB] hover:underline flex items-center gap-1"
             >
               <span>Open Assistant</span>
@@ -326,7 +312,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
       <div className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-50">
         <button
           onClick={() => {
-            setIsOpen(!isOpen);
+            onOpenChange(!isOpen);
             setIsTeaserDismissed(true);
           }}
           className={`relative group w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl focus:outline-none focus:ring-4 focus:ring-blue-500/20 ${
@@ -335,7 +321,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
               : 'bg-[#0F172A] hover:bg-slate-800 text-white hover:scale-105 border border-slate-700/80 shadow-slate-900/30'
           }`}
           aria-label={isOpen ? 'Close Nexas Assistant' : 'Open Nexas Assistant'}
-          title="Nexas — Setup Assistant"
+          title="Opportunity Assistant"
         >
           {/* Online green indicator dot */}
           {!isOpen && (
@@ -373,7 +359,9 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 truncate max-w-[210px]">
-                  Context: {activeOpportunity.organization}
+                  {activeOpportunity
+                    ? `Opportunity: ${activeOpportunity.organization}`
+                    : companyProfile.companyName || 'General business chat'}
                 </p>
               </div>
             </div>
@@ -381,7 +369,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
             <div className="flex items-center gap-1">
               <button
                 onClick={() => {
-                  setMessages([initialGreeting]);
+                  onMessagesChange([initialGreeting]);
                 }}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                 title="Reset conversation"
@@ -389,7 +377,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => onOpenChange(false)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                 title="Minimize assistant"
               >
@@ -401,15 +389,17 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
           {/* Context pill banner */}
           <div className="bg-slate-100/90 px-3.5 py-2 border-b border-slate-200 flex items-center justify-between text-[11px] shrink-0">
             <span className="text-slate-600 truncate max-w-[240px] font-medium">
-              Opportunity: <strong className="text-slate-900">{activeOpportunity.title}</strong>
+              {activeOpportunity
+                ? <>Opportunity: <strong className="text-slate-900">{activeOpportunity.title}</strong></>
+                : <strong className="text-slate-900">General business chat</strong>}
             </span>
-            <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+            {activeOpportunity && <span className={`px-2 py-0.5 rounded font-bold text-[10px] ${
               activeOpportunity.overallScore >= 80 
                 ? 'bg-emerald-100 text-emerald-800' 
                 : 'bg-amber-100 text-amber-800'
             }`}>
               {activeOpportunity.overallScore}/100 • {activeOpportunity.recommendation.toUpperCase()}
-            </span>
+            </span>}
           </div>
 
           {/* Messages Stream */}
@@ -439,6 +429,33 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
                     }`}
                   >
                     {msg.text}
+
+                    {msg.opportunityDraft && (
+                      <div className="mt-2.5 pt-2 border-t border-slate-100">
+                        <div className="font-semibold">{msg.opportunityDraft.title}</div>
+                        <p className="mt-1 text-slate-600">Would you like to review and add this opportunity?</p>
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            onClick={() => {
+                              if (msg.opportunityDraft) onReviewOpportunity(msg.opportunityDraft);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-[#2563EB] text-white text-[11px] font-semibold"
+                          >
+                            Review &amp; add
+                          </button>
+                          <button
+                            onClick={() => onMessagesChange(messages.map((message) =>
+                              message.id === msg.id
+                                ? { ...message, opportunityDraft: undefined, text: `${message.text}\n\nOkay, I won’t add it.` }
+                                : message
+                            ))}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-600 text-[11px] font-semibold"
+                          >
+                            Not now
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Action button inside message */}
                     {msg.suggestedAction && (
@@ -488,7 +505,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
             {quickPrompts.map((prompt, i) => (
               <button
                 key={i}
-                onClick={() => handleSendMessage(prompt)}
+                onClick={() => void handleSendMessage(prompt)}
                 className="whitespace-nowrap px-2.5 py-1 rounded-full bg-slate-100 hover:bg-blue-50 hover:text-[#2563EB] hover:border-blue-200 border border-slate-200 text-[10px] text-slate-600 font-medium transition-colors"
               >
                 {prompt}
@@ -520,14 +537,16 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSendMessage();
+                if (e.key === 'Enter') void handleSendMessage();
               }}
-              placeholder={`Ask Nexas about ${activeOpportunity.organization}...`}
+              placeholder={activeOpportunity
+                ? `Ask Nexas about ${activeOpportunity.organization} or your business...`
+                : 'Ask a business question or describe an opportunity...'}
               className="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] bg-slate-50 focus:bg-white transition-all"
             />
             <button
-              onClick={() => handleSendMessage()}
-              disabled={!inputMessage.trim()}
+              onClick={() => void handleSendMessage()}
+              disabled={!inputMessage.trim() || isTyping}
               className="p-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 disabled:opacity-40 text-white transition-colors shrink-0 shadow-2xs"
               title="Send message"
             >

@@ -17,18 +17,22 @@ import {
   Check,
   Award,
   Sparkles,
-  FileText
+  FileText,
+  Download,
+  MessageSquare
 } from 'lucide-react';
 import { EnterprisePageId } from '../types';
 
 interface OpportunityWorkspaceProps {
   opportunity: Opportunity;
   onNavigate: (page: EnterprisePageId) => void;
+  onOpenOpportunityChat: () => void;
 }
 
 export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
   opportunity,
-  onNavigate
+  onNavigate,
+  onOpenOpportunityChat
 }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'capability' | 'risks' | 'evidence'>('overview');
   const [selectedEvidenceId, setSelectedEvidenceId] = useState<string>(
@@ -43,6 +47,43 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
     navigator.clipboard.writeText(quote);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleExportSummary = () => {
+    const summary = [
+      `# ${opportunity.title}`,
+      '',
+      `- Organization: ${opportunity.organization || 'Not provided'}`,
+      `- Industry: ${opportunity.industry || 'Not provided'}`,
+      `- Stage: ${opportunity.stage}`,
+      `- Recommendation: ${opportunity.recommendation.replace(/_/g, ' ').toUpperCase()}`,
+      `- Score: ${opportunity.overallScore}/100`,
+      `- Estimated budget: ${opportunity.estimatedBudget || 'Not provided'}`,
+      `- Deadline: ${opportunity.deadline || 'Not provided'}`,
+      '',
+      '## Summary',
+      opportunity.summary || 'No summary is available.',
+      '',
+      '## Recommendation rationale',
+      opportunity.recommendationReason || 'Not provided',
+      '',
+      '## Requirements',
+      ...(opportunity.requirements.length
+        ? opportunity.requirements.map((requirement) => `- ${requirement.mandatory ? '[Mandatory] ' : ''}${requirement.title}: ${requirement.description}`)
+        : ['- No requirements recorded.']),
+      '',
+      '## Risks',
+      ...(opportunity.risks.length
+        ? opportunity.risks.map((risk) => `- [${risk.severity}] ${risk.title}: ${risk.description} Mitigation: ${risk.mitigation}`)
+        : ['- No risks recorded.'])
+    ].join('\n');
+
+    const url = URL.createObjectURL(new Blob([summary], { type: 'text/markdown;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${opportunity.title.replace(/[^\w.-]+/g, '-')}-summary.md`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const getRecommendationBanner = (rec: Opportunity['recommendation'], score: number) => {
@@ -110,13 +151,22 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
               Opportunity Score
             </div>
           </div>
-          <button
-            onClick={() => onNavigate('proposal-studio')}
-            className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-600 active:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
-          >
-            <FileText className="w-4 h-4" />
-            <span>Open Proposal Studio</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenOpportunityChat}
+              className="min-h-[44px] px-3 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Opportunity Chat</span>
+            </button>
+            <button
+              onClick={() => onNavigate('proposal-studio')}
+              className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#2563EB] hover:bg-blue-600 active:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <FileText className="w-4 h-4" />
+              <span>Open Proposal Studio</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -545,6 +595,20 @@ export const OpportunityWorkspace: React.FC<OpportunityWorkspaceProps> = ({
           </div>
         </div>
       )}
+
+      <section className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-sm font-bold text-slate-900">Opportunity Summary</h2>
+          <p className="text-xs text-slate-600 mt-1 leading-relaxed">{opportunity.summary || 'No summary is available yet.'}</p>
+        </div>
+        <button
+          onClick={handleExportSummary}
+          className="shrink-0 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-lg bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-semibold"
+        >
+          <Download className="w-4 h-4" />
+          Export summary
+        </button>
+      </section>
 
     </div>
   );

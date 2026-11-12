@@ -2,6 +2,7 @@ import {
   AccountType,
   ActivityEvent,
   CompanyCapabilityProfile,
+  NexasChatMessage,
   Opportunity,
   UserAccount
 } from '../types';
@@ -26,6 +27,7 @@ export interface WorkspaceData {
   account: UserAccount;
   profile: CompanyCapabilityProfile;
   opportunities: Opportunity[];
+  generalChatMessages?: NexasChatMessage[];
   activities: ActivityEvent[];
   onboarded: boolean;
   setupSkipped?: boolean;
@@ -100,6 +102,7 @@ export function createEmptyWorkspace(account: UserAccount): WorkspaceData {
     account: { ...account, isOnboarded: false },
     profile: emptyProfile(),
     opportunities: [],
+    generalChatMessages: [],
     activities: [],
     onboarded: false,
     setupSkipped: false,
@@ -114,6 +117,7 @@ export function createDemoWorkspace(account: UserAccount): WorkspaceData {
     account: { ...account, isOnboarded: true, accountType: account.accountType ?? 'enterprise' },
     profile: { ...clone(initialCompanyProfile), setupCompleted: true, aiLearnedContext: [], autoLearnedFields: [] },
     opportunities: clone(mockOpportunities),
+    generalChatMessages: [],
     activities: clone(initialActivityEvents),
     onboarded: true,
     setupSkipped: false,

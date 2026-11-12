@@ -106,6 +106,26 @@ export interface ProposalDocument {
   lastUpdated: string;
 }
 
+export interface OpportunityDraft {
+  title: string;
+  sourceText: string;
+}
+
+export interface NexasChatMessage {
+  id: string;
+  sender: 'assistant' | 'user';
+  text: string;
+  timestamp: string;
+  page?: EnterprisePageId;
+  suggestedAction?: {
+    label: string;
+    actionType: 'copy' | 'navigate_proposal' | 'insert_summary' | 'navigate';
+    payload?: string;
+    page?: EnterprisePageId;
+  };
+  opportunityDraft?: OpportunityDraft;
+}
+
 export interface ScoreBreakdown {
   businessFit: number;
   capabilityMatch: number;
@@ -143,6 +163,7 @@ export interface Opportunity {
   proposal: ProposalDocument;
   tags: string[];
   attachments?: AttachmentMeta[];
+  chatMessages?: NexasChatMessage[];
 }
 
 export interface CompanyCapabilityProfile {
@@ -180,6 +201,8 @@ export interface CompanyCapabilityProfile {
   setupCompleted?: boolean;
   /** Facts passively learned from AI chat interactions. */
   aiLearnedContext?: string[];
+  /** Service areas mentioned in chat but not yet verified as delivery capabilities. */
+  learnedServices?: string[];
   /** Field keys auto-filled from chat (for "Auto-learned from chat" badges). */
   autoLearnedFields?: string[];
   industry?: string;
@@ -201,6 +224,7 @@ export interface CompanyFacts {
   industry?: string;
   teamSize?: number;
   goals?: string[];
+  services?: string[];
   context?: string[];
 }
 

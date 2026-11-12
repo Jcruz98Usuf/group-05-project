@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Opportunity, OpportunityStage, CompanyCapabilityProfile, ActivityEvent, EnterprisePageId, ProposalDocument, UserAccount, SetupAnswers, CompanyFacts } from './types';
+import { Opportunity, OpportunityStage, CompanyCapabilityProfile, ActivityEvent, EnterprisePageId, ProposalDocument, UserAccount, SetupAnswers, CompanyFacts, NexasChatMessage, OpportunityDraft } from './types';
 import { Header } from './components/Header';
 import { Navigation } from './components/Navigation';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
@@ -17,7 +17,6 @@ import { SettingsView } from './components/SettingsView';
 import { NewOpportunityModal } from './components/NewOpportunityModal';
 import { ProductBlueprintModal } from './components/ProductBlueprintModal';
 import { NexasChatbotBubble } from './components/NexasChatbotBubble';
-import { NexasGeneralChat } from './components/NexasGeneralChat';
 import { AuthLoginView } from './components/AuthLoginView';
 import { SetupIntelligence } from './components/SetupIntelligence';
 import { WorkspaceEmptyState } from './components/WorkspaceEmptyState';
@@ -83,6 +82,7 @@ export default function App() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [activeOpportunity, setActiveOpportunity] = useState<Opportunity | null>(null);
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+  const [generalChatMessages, setGeneralChatMessages] = useState<NexasChatMessage[]>([]);
   const [isOnboarded, setIsOnboarded] = useState<boolean>(false);
   const [isFirstLogin, setIsFirstLogin] = useState<boolean>(false);
   const [setupSkipped, setSetupSkipped] = useState<boolean>(false);
@@ -92,8 +92,10 @@ export default function App() {
   const [isNavCollapsed, setIsNavCollapsed] = useState<boolean>(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
   const [isNewOpportunityOpen, setIsNewOpportunityOpen] = useState<boolean>(false);
+  const [pendingOpportunityDraft, setPendingOpportunityDraft] = useState<OpportunityDraft | null>(null);
   const [isBlueprintOpen, setIsBlueprintOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isNexasChatOpen, setIsNexasChatOpen] = useState(false);
 
   const hydratedRef = useRef(false);
 
@@ -102,6 +104,7 @@ export default function App() {
     setCompanyProfile(ws.profile);
     setOpportunities(ws.opportunities);
     setActiveOpportunity(ws.opportunities[0] ?? null);
+    setGeneralChatMessages(ws.generalChatMessages ?? []);
     setActivityEvents(ws.activities);
     setIsOnboarded(ws.onboarded);
     setIsFirstLogin(Boolean(ws.isFirstLogin));
@@ -143,13 +146,14 @@ export default function App() {
       account: userAccount,
       profile: companyProfile,
       opportunities,
+      generalChatMessages,
       activities: activityEvents,
       onboarded: isOnboarded,
       setupSkipped,
       isFirstLogin,
       updatedAt: new Date().toISOString()
     });
-  }, [hydrated, userId, userAccount, companyProfile, opportunities, activityEvents, isOnboarded, setupSkipped, isFirstLogin]);
+  }, [hydrated, userId, userAccount, companyProfile, opportunities, generalChatMessages, activityEvents, isOnboarded, setupSkipped, isFirstLogin]);
 
   // Browser history integration: the Back button returns to the previous page
   // and never resolves to a blank screen.
@@ -251,6 +255,7 @@ export default function App() {
     setSessionUser(null);
     setOpportunities([]);
     setActiveOpportunity(null);
+    setGeneralChatMessages([]);
     setActivityEvents([]);
     setCompanyProfile(emptyProfile());
     setUserAccount(emptyAccount());
@@ -329,6 +334,7 @@ export default function App() {
   const handleSelectOpportunity = (opp: Opportunity) => setActiveOpportunity(opp);
 
   const handleOpportunityCreated = (newOpp: Opportunity) => {
+    setPendingOpportunityDraft(null);
     setOpportunities((prev) => [newOpp, ...prev]);
     setActiveOpportunity(newOpp);
     handleNavigate('workspace');
@@ -343,6 +349,31 @@ export default function App() {
       actor: userAccount.fullName || 'User',
       badgeType: newOpp.overallScore >= 80 ? 'emerald' : newOpp.overallScore >= 60 ? 'blue' : 'rose'
     });
+  };
+
+  const handleUpdateOpportunityChatMessages = useCallback((opportunityId: string, messages: NexasChatMessage[]) => {
+    setOpportunities((prev) =>
+      prev.map((opportunity) =>
+        opportunity.id === opportunityId ? { ...opportunity, chatMessages: messages } : opportunity
+      )
+    );
+    setActiveOpportunity((prev) =>
+      prev?.id === opportunityId ? { ...prev, chatMessages: messages } : prev
+    );
+  }, []);
+
+  const handleChatMessagesChange = useCallback((messages: NexasChatMessage[]) => {
+    if (activeOpportunity) {
+      handleUpdateOpportunityChatMessages(activeOpportunity.id, messages);
+    } else {
+      setGeneralChatMessages(messages);
+    }
+  }, [activeOpportunity, handleUpdateOpportunityChatMessages]);
+
+  const handleReviewOpportunity = (draft: OpportunityDraft) => {
+    setPendingOpportunityDraft(draft);
+    setIsNewOpportunityOpen(true);
+    setIsNexasChatOpen(false);
   };
 
   const handleUpdateOpportunityStage = (oppId: string, newStage: OpportunityStage) => {
@@ -455,7 +486,13 @@ export default function App() {
         if (!activeOpportunity) {
           return <EmptyPanel title="No opportunity selected" description="Add an opportunity or select one from the list to open its workspace." />;
         }
-        return <OpportunityWorkspace opportunity={activeOpportunity} onNavigate={handleNavigate} />;
+        return (
+          <OpportunityWorkspace
+            opportunity={activeOpportunity}
+            onNavigate={handleNavigate}
+            onOpenOpportunityChat={() => setIsNexasChatOpen(true)}
+          />
+        );
 
       case 'proposal-studio':
         if (!activeOpportunity) {
@@ -551,9 +588,13 @@ export default function App() {
 
       <NewOpportunityModal
         isOpen={isNewOpportunityOpen}
-        onClose={() => setIsNewOpportunityOpen(false)}
+        onClose={() => {
+          setIsNewOpportunityOpen(false);
+          setPendingOpportunityDraft(null);
+        }}
         companyProfile={companyProfile}
         onOpportunityCreated={handleOpportunityCreated}
+        initialDraft={pendingOpportunityDraft}
       />
 
       <ProductBlueprintModal
@@ -561,24 +602,18 @@ export default function App() {
         onClose={() => setIsBlueprintOpen(false)}
       />
 
-      {activeOpportunity ? (
-        <NexasChatbotBubble
-          activeOpportunity={activeOpportunity}
-          companyProfile={companyProfile}
-          currentPage={currentPage}
-          onNavigate={handleNavigate}
-          onUpdateProposal={handleUpdateProposal}
-          onLearnFacts={handleLearnFacts}
-        />
-      ) : (
-        <NexasGeneralChat
-          companyName={companyProfile.companyName || userAccount.companyName}
-          companyProfile={companyProfile}
-          onNavigate={handleNavigate}
-          onOpenNewOpportunity={() => setIsNewOpportunityOpen(true)}
-          onLearnFacts={handleLearnFacts}
-        />
-      )}
+      <NexasChatbotBubble
+        activeOpportunity={activeOpportunity}
+        companyProfile={companyProfile}
+        messages={activeOpportunity?.chatMessages ?? generalChatMessages}
+        isOpen={isNexasChatOpen}
+        onMessagesChange={handleChatMessagesChange}
+        onOpenChange={setIsNexasChatOpen}
+        onLearnFacts={handleLearnFacts}
+        onNavigate={handleNavigate}
+        onUpdateProposal={handleUpdateProposal}
+        onReviewOpportunity={handleReviewOpportunity}
+      />
     </div>
   );
 }

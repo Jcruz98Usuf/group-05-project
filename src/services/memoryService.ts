@@ -115,6 +115,13 @@ export function mergeLearnedFacts(
     autoLearned.add('goals');
   }
 
+  if (facts.services?.length) {
+    const learnedServices = new Set(next.learnedServices ?? []);
+    facts.services.forEach((service) => learnedServices.add(service));
+    next.learnedServices = Array.from(learnedServices).slice(-30);
+    autoLearned.add('services');
+  }
+
   if (facts.context?.length) {
     for (const c of facts.context) {
       const t = c.trim();
