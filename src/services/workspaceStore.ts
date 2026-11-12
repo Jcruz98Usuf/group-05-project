@@ -29,6 +29,7 @@ export interface WorkspaceData {
   activities: ActivityEvent[];
   onboarded: boolean;
   setupSkipped?: boolean;
+  isFirstLogin: boolean;
   updatedAt: string;
 }
 
@@ -86,7 +87,10 @@ export function emptyProfile(): CompanyCapabilityProfile {
     certifications: [],
     techStack: [],
     keyPersonnel: [],
-    needsConfirmation: ['Company profile']
+    needsConfirmation: ['Company profile'],
+    setupCompleted: false,
+    aiLearnedContext: [],
+    autoLearnedFields: []
   };
 }
 
@@ -99,6 +103,7 @@ export function createEmptyWorkspace(account: UserAccount): WorkspaceData {
     activities: [],
     onboarded: false,
     setupSkipped: false,
+    isFirstLogin: true,
     updatedAt: new Date().toISOString()
   };
 }
@@ -107,11 +112,12 @@ export function createEmptyWorkspace(account: UserAccount): WorkspaceData {
 export function createDemoWorkspace(account: UserAccount): WorkspaceData {
   return {
     account: { ...account, isOnboarded: true, accountType: account.accountType ?? 'enterprise' },
-    profile: clone(initialCompanyProfile),
+    profile: { ...clone(initialCompanyProfile), setupCompleted: true, aiLearnedContext: [], autoLearnedFields: [] },
     opportunities: clone(mockOpportunities),
     activities: clone(initialActivityEvents),
     onboarded: true,
     setupSkipped: false,
+    isFirstLogin: false,
     updatedAt: new Date().toISOString()
   };
 }

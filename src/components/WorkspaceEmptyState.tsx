@@ -1,17 +1,17 @@
 import React from 'react';
 import { UserAccount } from '../types';
-import { Sparkles, Plus, ArrowRight, Building2, User, CheckCircle2, Circle } from 'lucide-react';
+import { Plus, ArrowRight, Building2, User, CheckCircle2, Circle } from 'lucide-react';
 
 interface WorkspaceEmptyStateProps {
   account: UserAccount;
-  onRunSetup: () => void;
+  onEditCompany: () => void;
   onAddOpportunity: () => void;
   onLoadDemo?: () => void;
 }
 
 export const WorkspaceEmptyState: React.FC<WorkspaceEmptyStateProps> = ({
   account,
-  onRunSetup,
+  onEditCompany,
   onAddOpportunity,
   onLoadDemo
 }) => {
@@ -20,11 +20,11 @@ export const WorkspaceEmptyState: React.FC<WorkspaceEmptyStateProps> = ({
 
   const steps = [
     {
-      label: 'Run the setup assistant',
-      detail: 'Capture your business profile, industry, and goals so Nexas can tailor analysis.',
+      label: 'Complete your company info',
+      detail: 'Add your business profile, industry, team size, and goals so Nexas can tailor analysis.',
       done: Boolean(account.industry && account.teamSize),
-      action: onRunSetup,
-      cta: 'Run setup'
+      action: onEditCompany,
+      cta: 'Edit info'
     },
     {
       label: 'Add your first opportunity',
@@ -37,14 +37,13 @@ export const WorkspaceEmptyState: React.FC<WorkspaceEmptyStateProps> = ({
       label: 'Build your capability profile',
       detail: 'Confirm the services, certifications, and personnel Nexas should match against.',
       done: false,
-      action: onRunSetup,
+      action: onEditCompany,
       cta: 'Review profile'
     }
   ];
 
   return (
     <div className="max-w-5xl mx-auto py-4 sm:py-8">
-      {/* Welcome header */}
       <div className="flex items-start gap-3 mb-6">
         <div className="w-11 h-11 rounded-xl bg-[#0F172A] flex items-center justify-center shrink-0">
           {isEnterprise ? <Building2 className="w-5 h-5 text-[#38BDF8]" /> : <User className="w-5 h-5 text-[#38BDF8]" />}
@@ -63,7 +62,6 @@ export const WorkspaceEmptyState: React.FC<WorkspaceEmptyStateProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Setup checklist */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
           <h2 className="text-sm font-bold text-slate-900 mb-4">Get started</h2>
           <div className="space-y-3">
@@ -90,24 +88,23 @@ export const WorkspaceEmptyState: React.FC<WorkspaceEmptyStateProps> = ({
           </div>
         </div>
 
-        {/* Quick actions */}
         <div className="space-y-5">
           <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5">
             <h2 className="text-sm font-bold text-slate-900 mb-3">Quick actions</h2>
             <div className="space-y-2">
               <button
-                onClick={onRunSetup}
+                onClick={onAddOpportunity}
                 className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-slate-800 text-white text-xs font-bold transition-colors"
               >
-                <Sparkles className="w-4 h-4 text-[#38BDF8]" />
-                Run Setup Assistant
+                <Plus className="w-4 h-4 text-[#38BDF8]" />
+                Add Opportunity
               </button>
               <button
-                onClick={onAddOpportunity}
+                onClick={onEditCompany}
                 className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors"
               >
-                <Plus className="w-4 h-4 text-[#2563EB]" />
-                Add Opportunity
+                <Building2 className="w-4 h-4 text-[#2563EB]" />
+                My Company Info
               </button>
             </div>
           </div>

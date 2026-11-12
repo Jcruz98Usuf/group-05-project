@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Opportunity, OpportunityStage, CompanyCapabilityProfile, ActivityEvent, EnterprisePageId, ProposalDocument, UserAccount, SetupAnswers } from './types';
+import { Opportunity, OpportunityStage, CompanyCapabilityProfile, ActivityEvent, EnterprisePageId, ProposalDocument, UserAccount, SetupAnswers, CompanyFacts } from './types';
 import { Header } from './components/Header';
 import { Navigation } from './components/Navigation';
 import { ExecutiveDashboard } from './components/ExecutiveDashboard';
@@ -17,8 +17,9 @@ import { SettingsView } from './components/SettingsView';
 import { NewOpportunityModal } from './components/NewOpportunityModal';
 import { ProductBlueprintModal } from './components/ProductBlueprintModal';
 import { NexasChatbotBubble } from './components/NexasChatbotBubble';
+import { NexasGeneralChat } from './components/NexasGeneralChat';
 import { AuthLoginView } from './components/AuthLoginView';
-import { SetupAssistant } from './components/SetupAssistant';
+import { SetupIntelligence } from './components/SetupIntelligence';
 import { WorkspaceEmptyState } from './components/WorkspaceEmptyState';
 import {
   WorkspaceData,
@@ -33,6 +34,7 @@ import {
   setSessionUser,
   DEMO_EMAIL
 } from './services/workspaceStore';
+import { mergeLearnedFacts } from './services/memoryService';
 
 const VALID_PAGES: EnterprisePageId[] = [
   'dashboard',
@@ -82,8 +84,8 @@ export default function App() {
   const [activeOpportunity, setActiveOpportunity] = useState<Opportunity | null>(null);
   const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
   const [isOnboarded, setIsOnboarded] = useState<boolean>(false);
+  const [isFirstLogin, setIsFirstLogin] = useState<boolean>(false);
   const [setupSkipped, setSetupSkipped] = useState<boolean>(false);
-  const [showSetup, setShowSetup] = useState<boolean>(false);
 
   const [currentPage, setCurrentPage] = useState<EnterprisePageId>('dashboard');
   const [historyStack, setHistoryStack] = useState<EnterprisePageId[]>([]);
@@ -102,6 +104,7 @@ export default function App() {
     setActiveOpportunity(ws.opportunities[0] ?? null);
     setActivityEvents(ws.activities);
     setIsOnboarded(ws.onboarded);
+    setIsFirstLogin(Boolean(ws.isFirstLogin));
     setSetupSkipped(Boolean(ws.setupSkipped));
   }, []);
 
@@ -143,9 +146,10 @@ export default function App() {
       activities: activityEvents,
       onboarded: isOnboarded,
       setupSkipped,
+      isFirstLogin,
       updatedAt: new Date().toISOString()
     });
-  }, [hydrated, userId, userAccount, companyProfile, opportunities, activityEvents, isOnboarded, setupSkipped]);
+  }, [hydrated, userId, userAccount, companyProfile, opportunities, activityEvents, isOnboarded, setupSkipped, isFirstLogin]);
 
   // Browser history integration: the Back button returns to the previous page
   // and never resolves to a blank screen.
@@ -251,7 +255,7 @@ export default function App() {
     setCompanyProfile(emptyProfile());
     setUserAccount(emptyAccount());
     setIsOnboarded(false);
-    setShowSetup(false);
+    setIsFirstLogin(false);
     try {
       sessionStorage.removeItem('nexusiq_authenticated');
     } catch (e) {
@@ -268,8 +272,8 @@ export default function App() {
     setUserAccount({ ...account, isOnboarded: true });
     setCompanyProfile(profile);
     setIsOnboarded(true);
+    setIsFirstLogin(false);
     setSetupSkipped(false);
-    setShowSetup(false);
     handleNavigate('dashboard');
 
     addActivity({
@@ -288,13 +292,23 @@ export default function App() {
   const handleSkipSetup = () => {
     setUserAccount((prev) => ({ ...prev, isOnboarded: true }));
     setIsOnboarded(true);
+    setIsFirstLogin(false);
     setSetupSkipped(true);
-    setShowSetup(false);
     handleNavigate('dashboard');
   };
 
-  const handleRunSetup = () => setShowSetup(true);
-  const handleExitSetup = () => setShowSetup(false);
+  // Save My Company Info from Settings (editor + AI chat memory).
+  const handleSaveCompany = (account: UserAccount, profile: CompanyCapabilityProfile) => {
+    setUserAccount({ ...account, isOnboarded: true });
+    setCompanyProfile({ ...profile, setupCompleted: true });
+    setIsOnboarded(true);
+    setIsFirstLogin(false);
+  };
+
+  // Passive AI memory: merge facts learned from chat into the profile (fills empty fields only).
+  const handleLearnFacts = useCallback((facts: CompanyFacts) => {
+    setCompanyProfile((prev) => mergeLearnedFacts(prev, facts));
+  }, []);
 
   // Load isolated demo data into the current account (never shared across tenants).
   const handleLoadDemo = () => {
@@ -370,16 +384,14 @@ export default function App() {
     return <AuthLoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // 2. Setup Assistant gate (first sign-in, or resumed from Settings / dashboard)
-  if (!isOnboarded || showSetup) {
+  // 2. Setup Intelligence gate — shown only on first login (before onboarding completes)
+  if (!isOnboarded) {
     return (
-      <SetupAssistant
+      <SetupIntelligence
         account={userAccount}
-        initialProfile={companyProfile}
-        mode={isOnboarded ? 'settings' : 'onboarding'}
+        mode="onboarding"
         onComplete={handleCompleteSetup}
         onSkip={handleSkipSetup}
-        onExit={isOnboarded ? handleExitSetup : undefined}
       />
     );
   }
@@ -410,7 +422,7 @@ export default function App() {
           return (
             <WorkspaceEmptyState
               account={userAccount}
-              onRunSetup={handleRunSetup}
+              onEditCompany={() => handleNavigate('settings')}
               onAddOpportunity={() => setIsNewOpportunityOpen(true)}
               onLoadDemo={userAccount.email.toLowerCase() === DEMO_EMAIL ? undefined : handleLoadDemo}
             />
@@ -484,8 +496,8 @@ export default function App() {
           <SettingsView
             companyProfile={companyProfile}
             onUpdateProfile={(updated) => setCompanyProfile(updated)}
-            onRunSetup={handleRunSetup}
-            setupCompleted={isOnboarded && !setupSkipped}
+            account={userAccount}
+            onSaveCompany={handleSaveCompany}
           />
         );
 
@@ -505,7 +517,6 @@ export default function App() {
         qualifiedCount={qualifiedCount}
         onOpenNewOpportunityModal={() => setIsNewOpportunityOpen(true)}
         companyName={companyProfile.companyName || userAccount.companyName}
-        onRerunOnboarding={handleRunSetup}
         isOpenMobile={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}
         onLogout={handleLogout}
@@ -530,7 +541,6 @@ export default function App() {
           onGoBack={handleGoBack}
           onOpenMobileNav={() => setIsMobileNavOpen(true)}
           onLogout={handleLogout}
-          onRerunOnboarding={handleRunSetup}
           onNavigate={handleNavigate}
         />
 
@@ -551,13 +561,22 @@ export default function App() {
         onClose={() => setIsBlueprintOpen(false)}
       />
 
-      {activeOpportunity && (
+      {activeOpportunity ? (
         <NexasChatbotBubble
           activeOpportunity={activeOpportunity}
           companyProfile={companyProfile}
           currentPage={currentPage}
           onNavigate={handleNavigate}
           onUpdateProposal={handleUpdateProposal}
+          onLearnFacts={handleLearnFacts}
+        />
+      ) : (
+        <NexasGeneralChat
+          companyName={companyProfile.companyName || userAccount.companyName}
+          companyProfile={companyProfile}
+          onNavigate={handleNavigate}
+          onOpenNewOpportunity={() => setIsNewOpportunityOpen(true)}
+          onLearnFacts={handleLearnFacts}
         />
       )}
     </div>

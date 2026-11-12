@@ -142,11 +142,14 @@ export interface Opportunity {
   evidenceMap: Record<string, SourceEvidence>;
   proposal: ProposalDocument;
   tags: string[];
+  attachments?: AttachmentMeta[];
 }
 
 export interface CompanyCapabilityProfile {
   companyName: string;
   tagline: string;
+  about?: string;
+  companyWebsite?: string;
   annualRevenue: string;
   teamSize: number;
   primaryIndustries: string[];
@@ -173,6 +176,41 @@ export interface CompanyCapabilityProfile {
     clearance?: string;
   }[];
   needsConfirmation?: string[];
+  /** Setup Intelligence completion flag. */
+  setupCompleted?: boolean;
+  /** Facts passively learned from AI chat interactions. */
+  aiLearnedContext?: string[];
+  /** Field keys auto-filled from chat (for "Auto-learned from chat" badges). */
+  autoLearnedFields?: string[];
+  industry?: string;
+  goals?: string[];
+}
+
+export type LearnedField =
+  | 'companyName'
+  | 'companyWebsite'
+  | 'companyDescription'
+  | 'industry'
+  | 'teamSize'
+  | 'goals';
+
+export interface CompanyFacts {
+  companyName?: string;
+  companyWebsite?: string;
+  companyDescription?: string;
+  industry?: string;
+  teamSize?: number;
+  goals?: string[];
+  context?: string[];
+}
+
+export interface AttachmentMeta {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
 }
 
 export interface ActivityEvent {

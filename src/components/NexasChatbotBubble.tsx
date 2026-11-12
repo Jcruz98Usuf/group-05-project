@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Opportunity, CompanyCapabilityProfile, ProposalDocument, EnterprisePageId } from '../types';
 import { buildCapabilityMatch, buildOpportunityAnalysis } from '../services/nexasEngine';
+import { extractDocumentText } from '../services/storageService';
+import { generateText } from '../services/aiProvider';
 import { 
   MessageSquare, 
   X, 
@@ -17,7 +19,8 @@ import {
   RefreshCw,
   ExternalLink,
   ChevronRight,
-  Maximize2
+  Maximize2,
+  Paperclip
 } from 'lucide-react';
 
 interface ChatMessage {
@@ -53,6 +56,7 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
   const [inputMessage, setInputMessage] = useState<string>('');
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   const initialGreeting: ChatMessage = {
     id: 'msg-init-1',
@@ -90,6 +94,112 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
     }
   }, [activeOpportunity.id]);
 
+  /** Deterministic, data-grounded reply used when no AI provider is configured. */
+  const buildDeterministicReply = (query: string): { text: string; action?: ChatMessage['suggestedAction'] } => {
+    let reply = '';
+    let action: ChatMessage['suggestedAction'] | undefined = undefined;
+    const lower = query.toLowerCase();
+
+    if (lower.includes('risk') || lower.includes('danger') || lower.includes('threat')) {
+      const topRisks = activeOpportunity.risks.slice(0, 3);
+      reply = `Here are the top evaluated risks for **${activeOpportunity.organization}**:\n\n` +
+        topRisks.map((r, i) => `${i + 1}. **${r.title}** (${r.severity} severity)\n   Mitigation: ${r.mitigation}`).join('\n\n') +
+        `\n\nWould you like me to add these mitigations directly to Section 7 of the Proposal Studio?`;
+      action = {
+        label: 'View in Proposal Studio',
+        actionType: 'navigate_proposal'
+      };
+    } else if (lower.includes('executive summary') || lower.includes('hook') || lower.includes('win theme')) {
+      reply = `Here is a draft executive summary for **${activeOpportunity.organization}**:\n\n"To support ${activeOpportunity.organization}'s mission, ${companyProfile.companyName} combines enterprise-grade data architecture with specialized ${companyProfile.services.slice(0, 2).map(s => s.name).join(' and ')}. Our verified compliance with ${companyProfile.certifications.slice(0, 2).map(c => c.name).join(' & ')} reduces vendor risk and supports day-one operational continuity."\n\nYou can insert this directly into Section 1.`;
+      action = {
+        label: 'Insert into Executive Summary',
+        actionType: 'insert_summary',
+        payload: `To support ${activeOpportunity.organization}'s mission, ${companyProfile.companyName} combines enterprise-grade data architecture with specialized ${companyProfile.services.slice(0, 2).map(s => s.name).join(' and ')}. Our verified compliance with ${companyProfile.certifications.slice(0, 2).map(c => c.name).join(' & ')} eliminates vendor risk and guarantees day-one operational continuity.`
+      };
+    } else if (lower.includes('match') || lower.includes('capability') || lower.includes('fit') || lower.includes('gap')) {
+      const cm = buildCapabilityMatch(activeOpportunity);
+      const fmt = (arr: { domain: string; match_percentage: number }[]) =>
+        arr.length ? arr.map((x) => `• ${x.domain} — ${x.match_percentage}%`).join('\n') : '• None';
+      reply =
+        `Capability Assessment for **${companyProfile.companyName}**:\n\n` +
+        `**Matched (≥80%)**\n${fmt(cm.matched_capabilities)}\n\n` +
+        `**Partial (50–79%)**\n${fmt(cm.partial_matches)}\n\n` +
+        `**Gaps (<50%)**\n${fmt(cm.gaps)}\n\n` +
+        `Overall capability match: **${cm.match_percentage}%**.`;
+    } else if (lower.includes('bid') || lower.includes('pursue') || lower.includes('recommendation')) {
+      const rec = activeOpportunity.recommendation;
+      reply = `**Recommendation: ${rec.toUpperCase().replace(/_/g, ' ')}**\n\n` +
+        `Rationale: ${activeOpportunity.recommendationReason}\n\n` +
+        `• Contract Ceiling: ${activeOpportunity.estimatedBudget}\n` +
+        `• Due Date: ${activeOpportunity.deadline}\n` +
+        `• Fit Probability: ${activeOpportunity.overallScore}%\n\nOur system advises committing proposal drafting resources for this engagement.`;
+      action = {
+        label: 'Open Proposal Studio',
+        actionType: 'navigate_proposal'
+      };
+    } else if (lower.includes('download') || lower.includes('export') || lower.includes('pdf') || lower.includes('docx')) {
+      reply = `You can export this complete proposal from the **Proposal Studio**!\n\nNexusIQ supports:\n1. **Native Styled .DOCX**: Formatted Microsoft Word document.\n2. **Enterprise .PDF**: Header banner, metadata summary card, and pagination.\n3. **Markdown (.md)**: Plain text copy.\n\nClick below to open the Proposal Studio and download your files.`;
+      action = {
+        label: 'Go to Proposal Studio',
+        actionType: 'navigate_proposal'
+      };
+    } else if (lower.includes('next') || lower.includes('what should i do')) {
+      const rec = activeOpportunity.recommendation;
+      if (rec === 'do_not_pursue') {
+        reply = `Recommended next step: **Do not pursue** this opportunity.\n\n${activeOpportunity.recommendationReason}\n\nYou can record the decision in the Pipeline or review the risks in the Workspace.`;
+        action = { label: 'Open Workspace', actionType: 'navigate', page: 'workspace' };
+      } else if (rec === 'investigate') {
+        reply = `Recommended next step: **Investigate further** before committing.\n\n1. Review the open risks in the Workspace.\n2. Confirm capability gaps and staffing.\n3. Move the opportunity to Qualified in the Pipeline when ready.`;
+        action = { label: 'Open Workspace', actionType: 'navigate', page: 'workspace' };
+      } else {
+        reply = `Recommended next step: **Proceed to proposal**.\n\n1. Review requirements in the Workspace.\n2. Draft the proposal in Proposal Studio.\n3. Export to DOCX or PDF when ready.`;
+        action = { label: 'Open Proposal Studio', actionType: 'navigate_proposal' };
+      }
+    } else if (lower.includes('add') || lower.includes('upload') || lower.includes('new opportunity') || lower.includes('intake') || lower.includes('how do i')) {
+      reply = `To evaluate a new opportunity:\n\n1. Click **New Lead** in the header (or **New Opportunity** in the sidebar).\n2. Paste the tender, RFP, or discovery notes — or choose a sample.\n3. Click **Run Opportunity Evaluation**.\n\nNexusIQ extracts the requirements, scores the fit, and drafts a proposal brief.`;
+      action = { label: 'Go to Opportunities', actionType: 'navigate', page: 'opportunities' };
+    } else {
+      const a = buildOpportunityAnalysis(activeOpportunity);
+      reply =
+        `**Opportunity Assessment — ${a.opportunity_title}**\n\n` +
+        `• Client: ${a.organization}\n` +
+        `• Industry: ${a.industry}\n` +
+        `• Budget: ${a.estimated_budget}\n` +
+        `• Deadline: ${a.deadline}\n` +
+        `• Requirements: ${a.requirements.length}\n` +
+        `• Risks: ${a.identified_risks.length}\n\n` +
+        `Open questions / missing information:\n${a.questions.map((q) => `• ${q}`).join('\n')}`;
+      action = {
+        label: 'Review Proposal Draft',
+        actionType: 'navigate_proposal'
+      };
+    }
+
+    return { text: reply, action };
+  };
+
+  /** Ask the dual-provider gateway (Gemini → Groq). Returns null when unavailable. */
+  const tryAiReply = async (query: string): Promise<string | null> => {
+    try {
+      const capabilitySummary = companyProfile.services.map((s) => s.name).join(', ') || 'not yet provided';
+      const certSummary = companyProfile.certifications.map((c) => c.name).join(', ') || 'not yet provided';
+      const system =
+        `You are Nexas, an enterprise opportunity-to-proposal assistant for ${companyProfile.companyName || 'the user'}. ` +
+        `Company capabilities: ${capabilitySummary}. Certifications: ${certSummary}. ` +
+        `Current opportunity: "${activeOpportunity.title}" for ${activeOpportunity.organization} ` +
+        `(industry: ${activeOpportunity.industry}, budget: ${activeOpportunity.estimatedBudget}, deadline: ${activeOpportunity.deadline}, ` +
+        `score: ${activeOpportunity.overallScore}/100, recommendation: ${activeOpportunity.recommendation}). ` +
+        `Answer concisely using markdown. Never fabricate capabilities, certifications, personnel, pricing, or references. ` +
+        `If information is missing, say so and suggest where to add it.`;
+
+      const result = await generateText({ system, prompt: query, maxTokens: 500, temperature: 0.4 });
+      const text = result?.text?.trim();
+      return text ? text : null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleSendMessage = (textToSend?: string) => {
     const query = textToSend || inputMessage.trim();
     if (!query) return;
@@ -105,98 +215,44 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
     setInputMessage('');
     setIsTyping(true);
 
-    // Simulate intelligent enterprise response based on actual opportunity data
-    setTimeout(() => {
-      let reply = '';
-      let action: ChatMessage['suggestedAction'] | undefined = undefined;
-      const lower = query.toLowerCase();
-
-      if (lower.includes('risk') || lower.includes('danger') || lower.includes('threat')) {
-        const topRisks = activeOpportunity.risks.slice(0, 3);
-        reply = `Here are the top evaluated risks for **${activeOpportunity.organization}**:\n\n` +
-          topRisks.map((r, i) => `${i + 1}. **${r.title}** (${r.severity} severity)\n   Mitigation: ${r.mitigation}`).join('\n\n') +
-          `\n\nWould you like me to add these mitigations directly to Section 7 of the Proposal Studio?`;
-        action = {
-          label: 'View in Proposal Studio',
-          actionType: 'navigate_proposal'
-        };
-      } else if (lower.includes('executive summary') || lower.includes('hook') || lower.includes('win theme')) {
-        reply = `Here is a draft executive summary for **${activeOpportunity.organization}**:\n\n"To support ${activeOpportunity.organization}'s mission, ${companyProfile.companyName} combines enterprise-grade data architecture with specialized ${companyProfile.services.slice(0, 2).map(s => s.name).join(' and ')}. Our verified compliance with ${companyProfile.certifications.slice(0, 2).map(c => c.name).join(' & ')} reduces vendor risk and supports day-one operational continuity."\n\nYou can insert this directly into Section 1.`;
-        action = {
-          label: 'Insert into Executive Summary',
-          actionType: 'insert_summary',
-          payload: `To support ${activeOpportunity.organization}'s mission, ${companyProfile.companyName} combines enterprise-grade data architecture with specialized ${companyProfile.services.slice(0, 2).map(s => s.name).join(' and ')}. Our verified compliance with ${companyProfile.certifications.slice(0, 2).map(c => c.name).join(' & ')} eliminates vendor risk and guarantees day-one operational continuity.`
-        };
-      } else if (lower.includes('match') || lower.includes('capability') || lower.includes('fit') || lower.includes('gap')) {
-        const cm = buildCapabilityMatch(activeOpportunity);
-        const fmt = (arr: { domain: string; match_percentage: number }[]) =>
-          arr.length ? arr.map((x) => `• ${x.domain} — ${x.match_percentage}%`).join('\n') : '• None';
-        reply =
-          `Capability Assessment for **${companyProfile.companyName}**:\n\n` +
-          `**Matched (≥80%)**\n${fmt(cm.matched_capabilities)}\n\n` +
-          `**Partial (50–79%)**\n${fmt(cm.partial_matches)}\n\n` +
-          `**Gaps (<50%)**\n${fmt(cm.gaps)}\n\n` +
-          `Overall capability match: **${cm.match_percentage}%**.`;
-      } else if (lower.includes('bid') || lower.includes('pursue') || lower.includes('recommendation')) {
-        const rec = activeOpportunity.recommendation;
-        reply = `**Recommendation: ${rec.toUpperCase().replace(/_/g, ' ')}**\n\n` +
-          `Rationale: ${activeOpportunity.recommendationReason}\n\n` +
-          `• Contract Ceiling: ${activeOpportunity.estimatedBudget}\n` +
-          `• Due Date: ${activeOpportunity.deadline}\n` +
-          `• Fit Probability: ${activeOpportunity.overallScore}%\n\nOur system advises committing proposal drafting resources for this engagement.`;
-        action = {
-          label: 'Open Proposal Studio',
-          actionType: 'navigate_proposal'
-        };
-      } else if (lower.includes('download') || lower.includes('export') || lower.includes('pdf') || lower.includes('docx')) {
-        reply = `You can export this complete proposal from the **Proposal Studio**!\n\nNexusIQ supports:\n1. **Native Styled .DOCX**: Formatted Microsoft Word document.\n2. **Enterprise .PDF**: Header banner, metadata summary card, and pagination.\n3. **Markdown (.md)**: Plain text copy.\n\nClick below to open the Proposal Studio and download your files.`;
-        action = {
-          label: 'Go to Proposal Studio',
-          actionType: 'navigate_proposal'
-        };
-      } else if (lower.includes('next') || lower.includes('what should i do')) {
-        const rec = activeOpportunity.recommendation;
-        if (rec === 'do_not_pursue') {
-          reply = `Recommended next step: **Do not pursue** this opportunity.\n\n${activeOpportunity.recommendationReason}\n\nYou can record the decision in the Pipeline or review the risks in the Workspace.`;
-          action = { label: 'Open Workspace', actionType: 'navigate', page: 'workspace' };
-        } else if (rec === 'investigate') {
-          reply = `Recommended next step: **Investigate further** before committing.\n\n1. Review the open risks in the Workspace.\n2. Confirm capability gaps and staffing.\n3. Move the opportunity to Qualified in the Pipeline when ready.`;
-          action = { label: 'Open Workspace', actionType: 'navigate', page: 'workspace' };
-        } else {
-          reply = `Recommended next step: **Proceed to proposal**.\n\n1. Review requirements in the Workspace.\n2. Draft the proposal in Proposal Studio.\n3. Export to DOCX or PDF when ready.`;
-          action = { label: 'Open Proposal Studio', actionType: 'navigate_proposal' };
-        }
-      } else if (lower.includes('add') || lower.includes('upload') || lower.includes('new opportunity') || lower.includes('intake') || lower.includes('how do i')) {
-        reply = `To evaluate a new opportunity:\n\n1. Click **New Lead** in the header (or **New Opportunity** in the sidebar).\n2. Paste the tender, RFP, or discovery notes — or choose a sample.\n3. Click **Run Opportunity Evaluation**.\n\nNexusIQ extracts the requirements, scores the fit, and drafts a proposal brief.`;
-        action = { label: 'Go to Opportunities', actionType: 'navigate', page: 'opportunities' };
-      } else {
-        const a = buildOpportunityAnalysis(activeOpportunity);
-        reply =
-          `**Opportunity Assessment — ${a.opportunity_title}**\n\n` +
-          `• Client: ${a.organization}\n` +
-          `• Industry: ${a.industry}\n` +
-          `• Budget: ${a.estimated_budget}\n` +
-          `• Deadline: ${a.deadline}\n` +
-          `• Requirements: ${a.requirements.length}\n` +
-          `• Risks: ${a.identified_risks.length}\n\n` +
-          `Open questions / missing information:\n${a.questions.map((q) => `• ${q}`).join('\n')}`;
-        action = {
-          label: 'Review Proposal Draft',
-          actionType: 'navigate_proposal'
-        };
-      }
+    void (async () => {
+      const aiText = await tryAiReply(query);
+      const fallback = aiText ? null : buildDeterministicReply(query);
 
       const botMsg: ChatMessage = {
         id: `asst-${Date.now()}`,
         sender: 'assistant',
-        text: reply,
+        text: aiText ?? fallback!.text,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        suggestedAction: action
+        suggestedAction: aiText ? undefined : fallback!.action
       };
 
       setMessages((prev) => [...prev, botMsg]);
       setIsTyping(false);
-    }, 600);
+    })();
+  };
+
+  const handleAttachFile = async (file: File) => {
+    const text = await extractDocumentText(file);
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `user-file-${Date.now()}`,
+        sender: 'user',
+        text: `📎 Attached: ${file.name}${text ? `\n\n${text.slice(0, 400)}` : ''}`,
+        timestamp: time
+      },
+      {
+        id: `asst-file-${Date.now()}`,
+        sender: 'assistant',
+        text: text
+          ? `I've received **${file.name}** and extracted its text. I can reference its contents when you ask about requirements, risks, or fit.`
+          : `I've received **${file.name}**. This file type has no extractable text, but it is attached to our conversation.`,
+        timestamp: time
+      }
+    ]);
   };
 
   const handleActionClick = (action: ChatMessage['suggestedAction']) => {
@@ -442,6 +498,23 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
 
           {/* Input Footer */}
           <div className="p-3 bg-white border-t border-slate-200 flex items-center gap-2 shrink-0">
+            <input
+              ref={chatFileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleAttachFile(file);
+                e.target.value = '';
+              }}
+            />
+            <button
+              onClick={() => chatFileInputRef.current?.click()}
+              className="p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:text-[#2563EB] hover:border-blue-200 transition-colors shrink-0"
+              title="Attach a document"
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+            </button>
             <input
               type="text"
               value={inputMessage}

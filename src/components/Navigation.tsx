@@ -25,7 +25,6 @@ interface NavigationProps {
   qualifiedCount: number;
   onOpenNewOpportunityModal: () => void;
   companyName: string;
-  onRerunOnboarding: () => void;
   isOpenMobile?: boolean;
   onCloseMobile?: () => void;
   onLogout?: () => void;
@@ -40,7 +39,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   qualifiedCount,
   onOpenNewOpportunityModal,
   companyName,
-  onRerunOnboarding,
   isOpenMobile = false,
   onCloseMobile,
   onLogout
@@ -225,14 +223,14 @@ export const Navigation: React.FC<NavigationProps> = ({
             </div>
             <button
               onClick={() => {
-                onRerunOnboarding();
+                onNavigate('settings');
                 if (onCloseMobile) onCloseMobile();
               }}
               className="w-full text-left text-[11px] text-[#38BDF8] hover:text-cyan-300 font-medium pt-1 flex items-center justify-between"
             >
               <span className="flex items-center gap-1">
                 <Sparkles className="w-3 h-3 text-[#38BDF8]" />
-                <span>Run Setup Assistant</span>
+                <span>Edit company info</span>
               </span>
               <span>&rarr;</span>
             </button>

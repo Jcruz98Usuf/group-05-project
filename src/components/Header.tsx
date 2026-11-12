@@ -28,7 +28,6 @@ interface HeaderProps {
   onGoBack: () => void;
   onOpenMobileNav: () => void;
   onLogout: () => void;
-  onRerunOnboarding: () => void;
   onNavigate: (page: EnterprisePageId) => void;
 }
 
@@ -46,7 +45,6 @@ export const Header: React.FC<HeaderProps> = ({
   onGoBack,
   onOpenMobileNav,
   onLogout,
-  onRerunOnboarding,
   onNavigate
 }) => {
   const [showOppDropdown, setShowOppDropdown] = useState(false);
@@ -261,18 +259,7 @@ export const Header: React.FC<HeaderProps> = ({
                     className="w-full px-3 py-2 rounded-lg text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
                   >
                     <Settings className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Workspace Settings</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setShowUserDropdown(false);
-                      onRerunOnboarding();
-                    }}
-                    className="w-full px-3 py-2 rounded-lg text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2 font-medium"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-[#2563EB]" />
-                    <span>Run Setup Assistant</span>
+                    <span>My Company Info</span>
                   </button>
 
                   <button

@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Opportunity, CompanyCapabilityProfile } from '../types';
 import { aiService } from '../services/aiRouter';
+import {
+  uploadTenantDocument,
+  isAcceptedFile,
+  ACCEPTED_FILE_EXTENSIONS,
+  UploadedDocument
+} from '../services/storageService';
 import { 
   X, 
   UploadCloud, 
@@ -9,7 +15,8 @@ import {
   CheckCircle2, 
   ArrowRight,
   Zap,
-  Briefcase
+  Briefcase,
+  Trash2
 } from 'lucide-react';
 
 interface NewOpportunityModalProps {
@@ -31,6 +38,10 @@ export const NewOpportunityModal: React.FC<NewOpportunityModalProps> = ({
   const [progressStep, setProgressStep] = useState('');
   const [progressPct, setProgressPct] = useState(0);
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<UploadedDocument[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -84,6 +95,30 @@ SECTION C - PERFORMANCE WORK STATEMENT: Contractor shall perform automated conve
     setRawText(p.text);
   };
 
+  const ingestFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (!list.length) return;
+    const accepted = list.filter(isAcceptedFile);
+    const rejected = list.length - accepted.length;
+    setUploadError(rejected > 0 ? `${rejected} file(s) skipped (unsupported type).` : '');
+
+    const uploaded: UploadedDocument[] = [];
+    const texts: string[] = [];
+    for (const file of accepted) {
+      const doc = await uploadTenantDocument('draft', 'intake', file);
+      uploaded.push(doc);
+      if (doc.text) texts.push(doc.text);
+    }
+
+    if (uploaded.length) {
+      setAttachments((prev) => [...prev, ...uploaded]);
+      if (!documentName && uploaded[0]) setDocumentName(uploaded[0].name);
+      if (texts.length) {
+        setRawText((prev) => (prev.trim() ? `${prev}\n\n${texts.join('\n\n')}` : texts.join('\n\n')));
+      }
+    }
+  };
+
   const handleStartAnalysis = async () => {
     if (!rawText.trim()) return;
 
@@ -101,6 +136,10 @@ SECTION C - PERFORMANCE WORK STATEMENT: Contractor shall perform automated conve
           setProgressPct(pct);
         }
       );
+
+      if (attachments.length) {
+        opp.attachments = attachments.map(({ text: _text, ...meta }) => meta);
+      }
 
       setIsAnalyzing(false);
       onOpportunityCreated(opp);
@@ -154,6 +193,87 @@ SECTION C - PERFORMANCE WORK STATEMENT: Contractor shall perform automated conve
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Document Upload (drag & drop) */}
+        <div className="space-y-2">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Upload Documents
+          </div>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click();
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              if (e.dataTransfer.files?.length) ingestFiles(e.dataTransfer.files);
+            }}
+            className={`cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+              isDragging
+                ? 'border-[#2563EB] bg-blue-50/60'
+                : 'border-slate-200 bg-slate-50/60 hover:bg-slate-100'
+            }`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={ACCEPTED_FILE_EXTENSIONS.join(',')}
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.length) ingestFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <UploadCloud className="w-6 h-6 text-[#2563EB] mx-auto" />
+            <div className="text-xs font-semibold text-slate-700 mt-1">
+              Drop files here or click to browse
+            </div>
+            <div className="text-[11px] text-slate-400 mt-0.5">
+              PDF, DOCX, XLSX, CSV, TXT, PNG, JPG — text is extracted automatically
+            </div>
+          </div>
+
+          {uploadError && <div className="text-[11px] text-rose-600">{uploadError}</div>}
+
+          {attachments.length > 0 && (
+            <div className="space-y-1.5">
+              {attachments.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-white"
+                >
+                  <FileText className="w-4 h-4 text-[#2563EB] shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-slate-800 truncate">{a.name}</div>
+                    <div className="text-[10px] text-slate-400">
+                      {(a.size / 1024).toFixed(1)} KB{a.text ? ' • text extracted' : ''}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAttachments((prev) => prev.filter((x) => x.id !== a.id));
+                    }}
+                    className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                    title="Remove file"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Document Details Form */}

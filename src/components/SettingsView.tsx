@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { CompanyCapabilityProfile } from '../types';
+import { CompanyCapabilityProfile, UserAccount } from '../types';
 import { aiService, AIServiceSettings } from '../services/aiRouter';
+import { EditCompanyInfo } from './EditCompanyInfo';
 import { 
   Settings, 
   Building, 
@@ -11,22 +12,21 @@ import {
   Check, 
   Save, 
   Lock,
-  UserCheck,
-  Sparkles
+  UserCheck
 } from 'lucide-react';
 
 interface SettingsViewProps {
   companyProfile: CompanyCapabilityProfile;
   onUpdateProfile: (updated: CompanyCapabilityProfile) => void;
-  onRunSetup?: () => void;
-  setupCompleted?: boolean;
+  account: UserAccount;
+  onSaveCompany: (account: UserAccount, profile: CompanyCapabilityProfile) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   companyProfile,
   onUpdateProfile,
-  onRunSetup,
-  setupCompleted
+  account,
+  onSaveCompany
 }) => {
   const [aiSettings, setAiSettings] = useState<AIServiceSettings>(aiService.getSettings());
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
@@ -64,33 +64,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </button>
       </div>
 
-      {/* Setup Assistant */}
-      {onRunSetup && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#0F172A] flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4 text-[#38BDF8]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-slate-900">Setup Assistant</h3>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${setupCompleted ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                  {setupCompleted ? 'Completed' : 'Incomplete'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Capture your business profile, industry, team size, and goals so Nexas can tailor analysis.
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onRunSetup}
-            className="shrink-0 px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-semibold shadow-xs transition-all self-start sm:self-auto"
-          >
-            {setupCompleted ? 'Re-run Setup' : 'Run Setup Assistant'}
-          </button>
-        </div>
-      )}
+      {/* My Company Info (Setup Intelligence editor + AI chat memory) */}
+      <EditCompanyInfo account={account} profile={companyProfile} onSave={onSaveCompany} />
 
       {/* Section 1: Organization Details */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-5 space-y-4">
