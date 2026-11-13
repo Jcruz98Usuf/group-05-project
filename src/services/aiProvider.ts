@@ -28,8 +28,12 @@ export interface AIResult {
 const GEMINI_KEY = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim();
 const GROQ_KEY = (import.meta.env.VITE_GROQ_API_KEY as string | undefined)?.trim();
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// Model IDs are env-overridable and fall back to a candidate list, so a provider
+// retiring a model (e.g. Groq retiring llama-3.3-70b-versatile) does not break the app.
+const GEMINI_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string | undefined)?.trim() || 'gemini-3.8-flash';
+const GROQ_MODEL = (import.meta.env.VITE_GROQ_MODEL as string | undefined)?.trim() || 'openai/gpt-oss-120b';
+const GEMINI_FALLBACKS = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.5-flash'];
+const GROQ_FALLBACKS = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
 const REQUEST_TIMEOUT_MS = 20000;
 
 export const AI_KEYS = {
@@ -71,13 +75,14 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   }
 }
 
-async function callGemini(req: AIRequest): Promise<string> {
+async function callGemini(req: AIRequest, model: string): Promise<string> {
   if (!GEMINI_KEY) throw new Error('Gemini key not configured');
 
+  // Gemini 3 rejects deprecated sampling params (temperature/top_p/top_k); send only
+  // the output token cap and (for JSON) the response MIME type.
   const body: Record<string, unknown> = {
     contents: [{ role: 'user', parts: [{ text: req.prompt }] }],
     generationConfig: {
-      temperature: req.temperature ?? 0.2,
       maxOutputTokens: req.maxTokens ?? 2048,
       ...(req.json ? { responseMimeType: 'application/json' } : {})
     }
@@ -87,7 +92,7 @@ async function callGemini(req: AIRequest): Promise<string> {
   }
 
   const res = await fetchWithTimeout(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -106,7 +111,7 @@ async function callGemini(req: AIRequest): Promise<string> {
   return text;
 }
 
-async function callGroq(req: AIRequest): Promise<string> {
+async function callGroq(req: AIRequest, model: string): Promise<string> {
   if (!GROQ_KEY) throw new Error('Groq key not configured');
 
   const messages: { role: string; content: string }[] = [];
@@ -120,11 +125,9 @@ async function callGroq(req: AIRequest): Promise<string> {
       Authorization: `Bearer ${GROQ_KEY}`
     },
     body: JSON.stringify({
-      model: GROQ_MODEL,
+      model,
       messages,
-      temperature: req.temperature ?? 0.2,
-      max_tokens: req.maxTokens ?? 2048,
-      ...(req.json ? { response_format: { type: 'json_object' } } : {})
+      max_tokens: req.maxTokens ?? 2048
     })
   });
 
@@ -139,6 +142,41 @@ async function callGroq(req: AIRequest): Promise<string> {
   return text;
 }
 
+/** Try the configured Gemini model, then fallbacks, but only on model-not-found (404). */
+async function callGeminiWithFallback(req: AIRequest): Promise<string> {
+  const models = Array.from(new Set([GEMINI_MODEL, ...GEMINI_FALLBACKS]));
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return await callGemini(req, model);
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      // Only move to the next model when this model is unavailable; propagate other errors.
+      if (!/Gemini 404/.test(message)) throw err;
+      console.warn(`[aiProvider] Gemini model "${model}" unavailable, trying next.`);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('No Gemini model available');
+}
+
+/** Try the configured Groq model, then fallbacks, but only on model-not-found (404). */
+async function callGroqWithFallback(req: AIRequest): Promise<string> {
+  const models = Array.from(new Set([GROQ_MODEL, ...GROQ_FALLBACKS]));
+  let lastError: unknown;
+  for (const model of models) {
+    try {
+      return await callGroq(req, model);
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      if (!/Groq 404/.test(message)) throw err;
+      console.warn(`[aiProvider] Groq model "${model}" unavailable, trying next.`);
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('No Groq model available');
+}
+
 /**
  * Generate text with automatic Gemini → Groq failover.
  * Returns null when no provider is configured or both fail.
@@ -148,7 +186,7 @@ export async function generateText(req: AIRequest): Promise<AIResult | null> {
 
   if (AI_KEYS.gemini) {
     try {
-      const text = await callGemini(req);
+      const text = await callGeminiWithFallback(req);
       console.info('[aiProvider] Gemini responded');
       return { text, provider: 'gemini' };
     } catch (geminiErr) {
@@ -162,7 +200,7 @@ export async function generateText(req: AIRequest): Promise<AIResult | null> {
       if (AI_KEYS.groq) {
         console.warn('[aiProvider] Failing over from Gemini to Groq:', message);
         try {
-          const text = await callGroq(req);
+          const text = await callGroqWithFallback(req);
           console.info('[aiProvider] Groq (failover) responded');
           return { text, provider: 'groq' };
         } catch (groqErr) {
@@ -177,7 +215,7 @@ export async function generateText(req: AIRequest): Promise<AIResult | null> {
 
   if (AI_KEYS.groq) {
     try {
-      const text = await callGroq(req);
+      const text = await callGroqWithFallback(req);
       console.info('[aiProvider] Groq responded');
       return { text, provider: 'groq' };
     } catch (groqErr) {
