@@ -3,6 +3,7 @@ import { Opportunity, CompanyCapabilityProfile, ProposalDocument, EnterprisePage
 import { buildCapabilityMatch } from '../services/nexasEngine';
 import { extractDocumentText } from '../services/storageService';
 import { generateNexasChatReply, NexasChatReply } from '../services/nexasChat';
+import { providerStatus } from '../services/aiProvider';
 import { 
   MessageSquare, 
   X, 
@@ -53,6 +54,9 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
+
+  const ai = providerStatus();
+  const aiLabel = ai.gemini && ai.groq ? 'Gemini + Groq' : ai.gemini ? 'Gemini' : ai.groq ? 'Groq' : 'Demo mode';
 
   const initialGreeting = useMemo<NexasChatMessage>(() => activeOpportunity ? ({
     id: `msg-init-${activeOpportunity.id}`,
@@ -359,6 +363,8 @@ export const NexasChatbotBubble: React.FC<NexasChatbotBubbleProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 truncate max-w-[210px]">
+                  <span className={ai.configured ? 'text-emerald-400' : 'text-amber-400'}>{aiLabel}</span>
+                  {' • '}
                   {activeOpportunity
                     ? `Opportunity: ${activeOpportunity.organization}`
                     : companyProfile.companyName || 'General business chat'}

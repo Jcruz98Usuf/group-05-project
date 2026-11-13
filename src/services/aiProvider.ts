@@ -41,6 +41,11 @@ export function aiConfigured(): boolean {
   return AI_KEYS.gemini || AI_KEYS.groq;
 }
 
+/** Which providers have keys configured (for status indicators / debugging). */
+export function providerStatus(): { gemini: boolean; groq: boolean; configured: boolean } {
+  return { gemini: AI_KEYS.gemini, groq: AI_KEYS.groq, configured: aiConfigured() };
+}
+
 function isRetryable(status: number, message: string): boolean {
   if (status === 429 || status === 408 || status === 503) return true;
   const m = message.toLowerCase();
@@ -143,7 +148,9 @@ export async function generateText(req: AIRequest): Promise<AIResult | null> {
 
   if (AI_KEYS.gemini) {
     try {
-      return { text: await callGemini(req), provider: 'gemini' };
+      const text = await callGemini(req);
+      console.info('[aiProvider] Gemini responded');
+      return { text, provider: 'gemini' };
     } catch (geminiErr) {
       const message = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
       const statusMatch = message.match(/Gemini (\d{3})/);
@@ -155,7 +162,9 @@ export async function generateText(req: AIRequest): Promise<AIResult | null> {
       if (AI_KEYS.groq) {
         console.warn('[aiProvider] Failing over from Gemini to Groq:', message);
         try {
-          return { text: await callGroq(req), provider: 'groq' };
+          const text = await callGroq(req);
+          console.info('[aiProvider] Groq (failover) responded');
+          return { text, provider: 'groq' };
         } catch (groqErr) {
           console.warn('[aiProvider] Groq fallback failed:', groqErr);
           return null;
@@ -168,7 +177,9 @@ export async function generateText(req: AIRequest): Promise<AIResult | null> {
 
   if (AI_KEYS.groq) {
     try {
-      return { text: await callGroq(req), provider: 'groq' };
+      const text = await callGroq(req);
+      console.info('[aiProvider] Groq responded');
+      return { text, provider: 'groq' };
     } catch (groqErr) {
       console.warn('[aiProvider] Groq failed:', groqErr);
       return null;
